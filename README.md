@@ -1,69 +1,94 @@
 # gifcap
 
-## О проекте
+Запись области экрана под панелью окна в **GIF**, **MP4** или **WebP** (запись в MP4, при сохранении — конвертация в WebP). Windows, Win32 + статически линкованный FFmpeg.
 
-Запись прямоугольной области экрана под панелью окна в GIF или анимированный WebP (как GifCam): кадры идут в FFmpeg и пишутся на диск по мере захвата, без накопления всей сессии в RAM.
+---
 
-Только Windows: захват и UI на Win32.
+## Что нужно на машине
 
-## Зависимости
+| Компонент | Зачем |
+|-----------|--------|
+| **Visual Studio** или Build Tools, нагрузка «Разработка классических приложений на C++», x64 | MSVC, линковка |
+| **Clang для Windows** (VS Installer → отдельные компоненты → *C++ Clang Compiler for Windows*) или [LLVM](https://github.com/llvm/llvm-project/releases) | `libclang.dll` для bindgen (`ffmpeg-sys-next`) |
+| **Rust** [rustup](https://rustup.rs/), toolchain **`stable-x86_64-pc-windows-msvc`** | `rustc -vV` → host/target `x86_64-pc-windows-msvc` |
+| **vcpkg** — [клон репозитория](https://github.com/microsoft/vcpkg), `bootstrap-vcpkg.bat` | Сборка FFmpeg и libwebp |
 
-Порядок установки:
+Задай `LIBCLANG_PATH` на каталог с `libclang.dll` (часто `...\Microsoft Visual Studio\...\VC\Tools\Llvm\x64\bin`).
 
-1. Visual Studio или Build Tools: рабочая нагрузка «Разработка классических приложений на C++», MSVC x64. Хост Rust: `x86_64-pc-windows-msvc` (проверка: `rustc -vV`).
-2. LLVM (libclang). Сборка `ffmpeg-sys-next` вызывает bindgen: нужен `libclang.dll` в каталоге для `LIBCLANG_PATH`.
-   - Через Visual Studio Installer → Изменить → отдельные компоненты → **C++ Clang Compiler for Windows** (в составе идёт LLVM). Типичный путь:  
-     `C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin`  
-     (у VS 2026 часто папка `18`; издание — Community / Professional / Enterprise). Поиск:  
-     `where /R "C:\Program Files\Microsoft Visual Studio" libclang.dll`
-   - Отдельно: установщик с [релизов LLVM](https://github.com/llvm/llvm-project/releases) (для Windows — артефакт вида `LLVM-*-win64.exe`). После установки `libclang.dll` обычно в `C:\Program Files\LLVM\bin`.
-3. Rust: [rustup](https://rustup.rs/), `rustup default stable-x86_64-pc-windows-msvc`.
-4. vcpkg — менеджер библиотек C/C++ от Microsoft: репозиторий [github.com/microsoft/vcpkg](https://github.com/microsoft/vcpkg). Клонируется весь репозиторий (исходники и скрипты инструмента, не отдельный установщик):
+---
 
-   ```bat
-   git clone https://github.com/microsoft/vcpkg.git C:\path\to\vcpkg
-   cd /d C:\path\to\vcpkg
-   bootstrap-vcpkg.bat
-   vcpkg.exe install ffmpeg[webp]:x64-windows-static-md
-   ```
+## Один раз: клон vcpkg
 
-   Фича **`[webp]`** нужна для **анимированного WebP** (в FFmpeg подключается libwebp). Без неё GIF работает, WebP — нет. Если FFmpeg уже ставился без `webp`, переустанови с этой фичей (при необходимости `vcpkg remove ffmpeg:x64-windows-static-md`, затем команда выше).
+```bat
+git clone https://github.com/microsoft/vcpkg.git C:\path\to\vcpkg
+cd /d C:\path\to\vcpkg
+bootstrap-vcpkg.bat
+```
 
-   Каталог клона — корень установки; в `VCPKG_ROOT` задаётся этот путь (внутри будут `vcpkg.exe`, `ports`, `installed`, `downloads` и т.д.).
+`VCPKG_ROOT` = этот каталог (где лежит `vcpkg.exe`). В клоне должен быть triplet **`triplets/community/x64-windows-static-md-release.cmake`**; если нет — `git pull` в vcpkg.
 
-   Triplet `x64-windows-static-md` и таргет `x86_64-pc-windows-msvc` заданы в `.cargo/config.toml`.
+---
 
-   **Манифест в репозитории (`vcpkg.json`):** из **корня gifcap** выполни  
-   `%VCPKG_ROOT%\vcpkg.exe install --triplet x64-windows-static-md`  
-   — FFmpeg попадёт в `vcpkg_installed/`. В `.cargo/config.toml` задан **`FFMPEG_DIR`** на этот префикс (manifest-дерево не совпадает с тем, что ждёт `vcpkg-rs`). Собирай из корня репо; **не задавай** для Cargo `VCPKG_ROOT=.../gifcap/vcpkg_installed` (будет ошибка про `.vcpkg-root` / `pkg-config`). Если конфиг не подхватился: `cargo clean` и явно  
-   `set FFMPEG_DIR=C:\path\to\gifcap\vcpkg_installed\x64-windows-static-md`.
+## Зависимости C++ (FFmpeg): только из корня репозитория gifcap
 
-Перед сборкой в сессии терминала (пути заменить на свои):
+Список пакетов и фич задаёт **`vcpkg.json`**. Порт FFmpeg из репо подменяется **overlay** (`vcpkg-overlays/ffmpeg` + `vcpkg-configuration.json`) — урезанный набор кодеков под gifcap, меньший статический exe.
+
+**Обязательно** выполнять установку из **корня gifcap** (где лежат `vcpkg.json` и `vcpkg-configuration.json`), иначе vcpkg уйдёт в classic mode без манифеста.
+
+**CMD:**
 
 ```bat
 set VCPKG_ROOT=C:\path\to\vcpkg
-set LIBCLANG_PATH=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin
-set PATH=%USERPROFILE%\.cargo\bin;%PATH%
+cd /d C:\path\to\gifcap
+%VCPKG_ROOT%\vcpkg.exe install --triplet x64-windows-static-md-release
 ```
 
-Сборка: `ffmpeg-sys-next` + bindgen (заголовки FFmpeg через libclang). Линковка FFmpeg статическая; отдельные `avutil-*.dll` к exe не нужны.
+**Git Bash:**
 
-## Сборка
+```bash
+export VCPKG_ROOT=/c/path/to/vcpkg
+cd /c/path/to/gifcap
+"$VCPKG_ROOT/vcpkg.exe" install --triplet x64-windows-static-md-release
+```
+
+Артефакты: `gifcap/vcpkg_installed/x64-windows-static-md-release/` (в `.gitignore`).
+
+В **`.cargo/config.toml`** уже указаны `FFMPEG_DIR` на этот префикс и target `x86_64-pc-windows-msvc`. Для Cargo **не** выставляй `VCPKG_ROOT` на `.../gifcap/vcpkg_installed`.
+
+Если сборка Rust не видит заголовки (`avutil.h` и т.п.) — проверь, что есть файл  
+`vcpkg_installed\x64-windows-static-md-release\include\libavutil\avutil.h` и при необходимости задай явно:
 
 ```bat
-cd C:\path\to\gifcap
+set FFMPEG_DIR=C:\path\to\gifcap\vcpkg_installed\x64-windows-static-md-release
+```
+
+---
+
+## Сборка Rust
+
+```bat
+cd /d C:\path\to\gifcap
+set LIBCLANG_PATH=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin
 cargo build --release -p gifcap
 ```
 
-Артефакт: `target\x86_64-pc-windows-msvc\release\gifcap.exe`.
+(Путь к LLVM подставь свой: издание Community/Professional и номер папки VS могут отличаться.)
 
-После смены `VCPKG_ROOT` / `LIBCLANG_PATH` или triplet: `cargo clean`, затем снова `cargo build`.
+Результат: `target\x86_64-pc-windows-msvc\release\gifcap.exe`.
 
-## Использование
+После смены triplet, `FFMPEG_DIR` или vcpkg-overlay: `cargo clean`, затем снова `cargo build`.
 
-1. Запустить `gifcap.exe`.
-2. Подогнать размер окна: под верхней панелью видна область захвата (рабочий стол); панель при записи остаётся на месте.
-3. FPS, формат GIF / WebP / MP4, Record; Pause / Resume; Stop & save.
-4. Итоговый файл: `%USERPROFILE%\Pictures\gifcap\`. Во время записи поток — в `%USERPROFILE%\.gifcap\active\` (`recording.gif`, `recording.webp` или `recording.mp4`).
+---
 
-Лог: `%USERPROFILE%\.gifcap\logs\gifcap.log` (ротация по размеру, до четырёх файлов `gifcap.log.1` … `gifcap.log.4`).
+## Overlay и обновление vcpkg
+
+Файлы в **`vcpkg-overlays/ffmpeg`** — копия порта vcpkg с небольшим дополнением в `portfile.cmake`. Если обновляешь клон vcpkg и сборка FFmpeg ломается из‑за расхождения версий порта — подтяни в overlay актуальный `ports/ffmpeg` **с того же коммита**, что и твой `vcpkg.exe`.
+
+---
+
+## Пользование
+
+- Запуск: `gifcap.exe`. Под панелью — зона захвата.
+- Сохранённые файлы: `%USERPROFILE%\Pictures\gifcap\`.
+- Во время записи: `%USERPROFILE%\.gifcap\active\` (`recording.gif` или `recording.mp4`).
+- Лог: `%USERPROFILE%\.gifcap\logs\gifcap.log`.

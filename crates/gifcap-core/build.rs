@@ -1,5 +1,5 @@
 //! `ffmpeg-sys-next` adds Windows system DLLs when using vcpkg; with `FFMPEG_DIR` it does not.
-//! It also skips transitive static deps — FFmpeg + `webp` needs libwebp (and mux / sharpyuv when present).
+//! It also skips transitive static deps — FFmpeg + WebP needs webp/webpmux/sharpyuv (+ zlib when present).
 
 use std::path::PathBuf;
 
@@ -26,10 +26,20 @@ fn main() {
     }
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
-    // Order: dependency libs before dependents (static MSVC link).
-    for stem in ["libsharpyuv", "libwebp", "libwebpmux", "zlib"] {
-        if lib_dir.join(format!("{stem}.lib")).is_file() {
-            println!("cargo:rustc-link-lib=static={stem}");
+    // Transitive static deps for FFmpeg + WebP. vcpkg `libwebp` installs `webp.lib`,
+    // `webpmux.lib`, `sharpyuv.lib`; some trees use `lib*.lib` — try both.
+    // Order: base deps first (static MSVC).
+    fn link_first_present(lib_dir: &std::path::Path, candidates: &[&str]) {
+        for stem in candidates {
+            if lib_dir.join(format!("{stem}.lib")).is_file() {
+                println!("cargo:rustc-link-lib=static={stem}");
+                return;
+            }
         }
     }
+
+    link_first_present(&lib_dir, &["zlib"]);
+    link_first_present(&lib_dir, &["sharpyuv", "libsharpyuv"]);
+    link_first_present(&lib_dir, &["webp", "libwebp"]);
+    link_first_present(&lib_dir, &["webpmux", "libwebpmux"]);
 }

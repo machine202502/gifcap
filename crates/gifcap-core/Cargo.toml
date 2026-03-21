@@ -18,7 +18,7 @@ bundled-ffmpeg = [
     "ffmpeg-next/build-zlib",
     "ffmpeg-next/build-lib-webp",
 ]
-# Link FFmpeg statically (vcpkg triplet `x64-windows-static-md`, см. README).
+# Link FFmpeg statically (vcpkg triplet `x64-windows-static-md-release`, см. README).
 static-ffmpeg = ["ffmpeg-next/static"]
 
 [dependencies]
