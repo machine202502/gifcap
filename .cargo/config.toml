@@ -1,0 +1,12 @@
+# ffmpeg-sys-next uses vcpkg only for `x86_64-pc-windows-msvc`. With the default
+# `*-windows-gnu` host, vcpkg is skipped and the build falls through to pkg-config (fails).
+[build]
+target = "x86_64-pc-windows-msvc"
+
+# Статическая линковка FFmpeg (`gifcap-core` default `static-ffmpeg`) — нужен triplet с .lib, не DLL.
+[env]
+VCPKGRS_DEFAULT_TRIPLET = "x64-windows-static-md"
+# Manifest vcpkg installs here; `ffmpeg-sys-next` via vcpkg wants `.vcpkg-root` + `installed/` layout.
+# Pointing at the triplet prefix skips vcpkg-rs and avoids that (see README).
+# force=true: иначе пустой FFMPEG_DIR в окружении или старый шелл не подставит путь из конфига.
+FFMPEG_DIR = { value = "vcpkg_installed/x64-windows-static-md", relative = true, force = true }

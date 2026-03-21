@@ -1,0 +1,31 @@
+[package]
+name = "gifcap-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "FFmpeg-backed session (GIF / animated WebP), streaming mux to disk"
+build = "build.rs"
+
+[features]
+# On Windows MSVC, `ffmpeg-sys-next/build` does not work (configure/make are Unix-only).
+# Install FFmpeg via vcpkg or set FFMPEG_DIR — see repo README.
+# Default: static FFmpeg → release `gifcap.exe` без avutil/avcodec DLL рядом с exe.
+default = ["static-ffmpeg"]
+# Linux/macOS only: compiles FFmpeg from source (slow). Do not use on Windows MSVC.
+# Use: `cargo build -p gifcap-core --no-default-features --features bundled-ffmpeg`
+bundled-ffmpeg = [
+    "ffmpeg-next/build",
+    "ffmpeg-next/build-zlib",
+    "ffmpeg-next/build-lib-webp",
+]
+# Link FFmpeg statically (vcpkg triplet `x64-windows-static-md`, см. README).
+static-ffmpeg = ["ffmpeg-next/static"]
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+# Match slim vcpkg manifest: no avdevice/avfilter/swresample (see repo vcpkg.json).
+ffmpeg-next = { version = "8", default-features = false, features = [
+    "codec",
+    "format",
+    "software-scaling",
+] }

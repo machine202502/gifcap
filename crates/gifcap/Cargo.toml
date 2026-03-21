@@ -1,0 +1,27 @@
+[package]
+name = "gifcap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "GifCam-style screen-to-GIF recorder (Windows)"
+
+[[bin]]
+name = "gifcap"
+path = "src/main.rs"
+
+[build-dependencies]
+ico = "0.3"
+winres = "0.1"
+
+[features]
+default = []
+# For Linux/macOS developers building without system FFmpeg (not supported on Windows MSVC).
+bundled-ffmpeg = ["gifcap-core/bundled-ffmpeg"]
+
+[dependencies]
+gifcap-core = { path = "../gifcap-core" }
+gifcap-windows = { path = "../gifcap-windows" }
+eframe = { version = "0.29", default-features = false, features = ["default_fonts", "glow"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+raw-window-handle = "0.6"
+uuid = { version = "1", features = ["v4"] }

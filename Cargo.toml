@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = ["crates/gifcap-core", "crates/gifcap-windows", "crates/gifcap"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+# Smaller `gifcap.exe`: LTO drops unused Rust code across crates; `opt-level = "z"` shrinks codegen.
+# Strip removes symbol tables (stack traces in release won’t have Rust symbol names unless you use a PDB).
+# Note: with `static-ffmpeg`, libavcodec/libavutil still dominate size — that’s expected.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
