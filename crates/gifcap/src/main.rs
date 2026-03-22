@@ -99,7 +99,9 @@ struct GifcapApp {
     fps: f32,
     output_format: ExportFormat,
     quality_gif: u8,
+    #[cfg(not(feature = "slim"))]
     quality_webp: u8,
+    #[cfg(not(feature = "slim"))]
     quality_mp4: u8,
     recording: bool,
     paused: bool,
@@ -153,7 +155,9 @@ impl GifcapApp {
             fps: 10.0,
             output_format: ExportFormat::Gif,
             quality_gif: DEFAULT_QUALITY_GIF,
+            #[cfg(not(feature = "slim"))]
             quality_webp: DEFAULT_QUALITY_WEBP,
+            #[cfg(not(feature = "slim"))]
             quality_mp4: DEFAULT_QUALITY_MP4,
             recording: false,
             paused: false,
@@ -239,9 +243,18 @@ impl eframe::App for GifcapApp {
             .frame(theme::toolbar_frame(ctx))
             .show(ctx, |ui| {
                 if self.export_busy {
-                    let busy_label = match self.export_busy_format {
-                        Some(ExportFormat::Webp) => "Converting to WebP…",
-                        _ => "Saving file…",
+                    let busy_label = {
+                        #[cfg(feature = "slim")]
+                        {
+                            "Saving file…"
+                        }
+                        #[cfg(not(feature = "slim"))]
+                        {
+                            match self.export_busy_format {
+                                Some(ExportFormat::Webp) => "Converting to WebP…",
+                                _ => "Saving file…",
+                            }
+                        }
                     };
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
@@ -251,6 +264,7 @@ impl eframe::App for GifcapApp {
                                     .small()
                                     .color(text_main),
                             );
+                            #[cfg(not(feature = "slim"))]
                             if self.export_busy_format == Some(ExportFormat::Webp) {
                                 if ui.add(theme::secondary_button("Cancel")).clicked() {
                                     if let Some(c) = &self.export_cancel {
@@ -287,42 +301,71 @@ impl eframe::App for GifcapApp {
                             ui.separator();
 
                             ui.add_enabled_ui(!self.recording, |ui| {
-                                let q_ref: &mut u8 = match self.output_format {
-                                    ExportFormat::Gif => &mut self.quality_gif,
-                                    ExportFormat::Webp => &mut self.quality_webp,
-                                    ExportFormat::Mp4 => &mut self.quality_mp4,
-                                };
-                                let mut q = i32::from(*q_ref);
-                                ui.label(
-                                    egui::RichText::new("Quality")
-                                        .small()
-                                        .color(text_main),
-                                );
-                                if ui
-                                    .add_sized(
-                                        [120.0, 18.0],
-                                        egui::Slider::new(&mut q, 1..=100)
-                                            .integer()
-                                            .suffix("%")
-                                            .text_color(text_main)
-                                            .handle_shape(egui::style::HandleShape::Rect {
-                                                aspect_ratio: 0.45,
-                                            })
-                                            .trailing_fill(true),
-                                    )
-                                    .changed()
+                                #[cfg(feature = "slim")]
                                 {
-                                    *q_ref = q.clamp(1, 100) as u8;
+                                    let q_ref: &mut u8 = &mut self.quality_gif;
+                                    let mut q = i32::from(*q_ref);
+                                    ui.label(
+                                        egui::RichText::new("Quality")
+                                            .small()
+                                            .color(text_main),
+                                    );
+                                    if ui
+                                        .add_sized(
+                                            [120.0, 18.0],
+                                            egui::Slider::new(&mut q, 1..=100)
+                                                .integer()
+                                                .suffix("%")
+                                                .text_color(text_main)
+                                                .handle_shape(egui::style::HandleShape::Rect {
+                                                    aspect_ratio: 0.45,
+                                                })
+                                                .trailing_fill(true),
+                                        )
+                                        .changed()
+                                    {
+                                        *q_ref = q.clamp(1, 100) as u8;
+                                    }
                                 }
-                                ui.separator();
-                                ui.label(
-                                    egui::RichText::new("Format")
-                                        .small()
-                                        .color(text_main),
-                                );
-                                ui.radio_value(&mut self.output_format, ExportFormat::Gif, "GIF");
-                                ui.radio_value(&mut self.output_format, ExportFormat::Mp4, "MP4");
-                                ui.radio_value(&mut self.output_format, ExportFormat::Webp, "WebP");
+                                #[cfg(not(feature = "slim"))]
+                                {
+                                    let q_ref: &mut u8 = match self.output_format {
+                                        ExportFormat::Gif => &mut self.quality_gif,
+                                        ExportFormat::Webp => &mut self.quality_webp,
+                                        ExportFormat::Mp4 => &mut self.quality_mp4,
+                                    };
+                                    let mut q = i32::from(*q_ref);
+                                    ui.label(
+                                        egui::RichText::new("Quality")
+                                            .small()
+                                            .color(text_main),
+                                    );
+                                    if ui
+                                        .add_sized(
+                                            [120.0, 18.0],
+                                            egui::Slider::new(&mut q, 1..=100)
+                                                .integer()
+                                                .suffix("%")
+                                                .text_color(text_main)
+                                                .handle_shape(egui::style::HandleShape::Rect {
+                                                    aspect_ratio: 0.45,
+                                                })
+                                                .trailing_fill(true),
+                                        )
+                                        .changed()
+                                    {
+                                        *q_ref = q.clamp(1, 100) as u8;
+                                    }
+                                    ui.separator();
+                                    ui.label(
+                                        egui::RichText::new("Format")
+                                            .small()
+                                            .color(text_main),
+                                    );
+                                    ui.radio_value(&mut self.output_format, ExportFormat::Gif, "GIF");
+                                    ui.radio_value(&mut self.output_format, ExportFormat::Mp4, "MP4");
+                                    ui.radio_value(&mut self.output_format, ExportFormat::Webp, "WebP");
+                                }
                             });
                         });
 
@@ -477,9 +520,18 @@ impl eframe::App for GifcapApp {
             });
 
         if self.export_busy {
-            let busy_label = match self.export_busy_format {
-                Some(ExportFormat::Webp) => "Converting to WebP…",
-                _ => "Saving file…",
+            let busy_label = {
+                #[cfg(feature = "slim")]
+                {
+                    "Saving file…"
+                }
+                #[cfg(not(feature = "slim"))]
+                {
+                    match self.export_busy_format {
+                        Some(ExportFormat::Webp) => "Converting to WebP…",
+                        _ => "Saving file…",
+                    }
+                }
             };
             egui::CentralPanel::default()
                 .frame(
@@ -498,6 +550,7 @@ impl eframe::App for GifcapApp {
                             egui::RichText::new(busy_label)
                                 .color(text_main),
                         );
+                        #[cfg(not(feature = "slim"))]
                         if self.export_busy_format == Some(ExportFormat::Webp) {
                             ui.add_space(16.0);
                             if ui.add(theme::secondary_button("Cancel")).clicked() {
@@ -593,10 +646,19 @@ impl GifcapApp {
             ));
         }
         let dir = instance_session_dir(&self.session_id.to_string()).map_err(|e| e.to_string())?;
-        let enc_q = match self.output_format {
-            ExportFormat::Gif => self.quality_gif,
-            ExportFormat::Webp => self.quality_webp,
-            ExportFormat::Mp4 => self.quality_mp4,
+        let enc_q = {
+            #[cfg(feature = "slim")]
+            {
+                self.quality_gif
+            }
+            #[cfg(not(feature = "slim"))]
+            {
+                match self.output_format {
+                    ExportFormat::Gif => self.quality_gif,
+                    ExportFormat::Webp => self.quality_webp,
+                    ExportFormat::Mp4 => self.quality_mp4,
+                }
+            }
         };
         let session = match Session::create_in_dir(
             dir,
@@ -778,9 +840,18 @@ impl GifcapApp {
             "Save pressed, format {:?}, frames={frames}",
             snapshot.format
         ));
-        let cancel_flag: Option<Arc<AtomicBool>> = match snapshot.format {
-            ExportFormat::Webp => Some(Arc::new(AtomicBool::new(false))),
-            _ => None,
+        let cancel_flag: Option<Arc<AtomicBool>> = {
+            #[cfg(feature = "slim")]
+            {
+                None
+            }
+            #[cfg(not(feature = "slim"))]
+            {
+                match snapshot.format {
+                    ExportFormat::Webp => Some(Arc::new(AtomicBool::new(false))),
+                    _ => None,
+                }
+            }
         };
         self.export_cancel = cancel_flag.as_ref().map(Arc::clone);
         let (tx, rx) = mpsc::channel();

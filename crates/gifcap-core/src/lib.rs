@@ -1,6 +1,6 @@
-//! Recording muxed incrementally with FFmpeg (GIF or MP4). WebP mode records to MP4, then runs the
-//! `ffmpeg` CLI to build animated WebP on save. Capture feeds BGRA frames into a writer thread;
-//! the container grows on disk with bounded memory.
+//! Recording muxed incrementally with FFmpeg (GIF; full builds also MP4 / WebP via MP4 + transcode).
+//! Capture feeds BGRA frames into a writer thread; the container grows on disk with bounded memory.
+//! Feature **`slim`**: GIF only; screenshots stay PNG via the `image` crate in the UI crate.
 
 mod error;
 mod export;

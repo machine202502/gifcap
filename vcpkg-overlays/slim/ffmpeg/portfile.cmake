@@ -45,7 +45,8 @@ elseif(VCPKG_TARGET_IS_LINUX)
 elseif(VCPKG_TARGET_IS_UWP)
     string(APPEND OPTIONS " --target-os=win32 --enable-w32threads --enable-d3d11va --enable-d3d12va --enable-mediafoundation")
 elseif(VCPKG_TARGET_IS_WINDOWS)
-    string(APPEND OPTIONS " --target-os=win32 --enable-w32threads --enable-d3d11va --enable-d3d12va --enable-dxva2 --enable-mediafoundation")
+    # Slim overlay: без DXVA/D3D/Media Foundation — только GIF на диск, HW-декод не нужен и раздувает бинарь.
+    string(APPEND OPTIONS " --target-os=win32 --enable-w32threads")
 elseif(VCPKG_TARGET_IS_OSX)
     string(APPEND OPTIONS " --target-os=darwin --enable-appkit --enable-avfoundation --enable-coreimage --enable-audiotoolbox --enable-videotoolbox")
 elseif(VCPKG_TARGET_IS_IOS)
@@ -59,6 +60,10 @@ endif()
 if(VCPKG_TARGET_IS_OSX)
     list(JOIN VCPKG_OSX_ARCHITECTURES " " OSX_ARCHS)
     list(LENGTH VCPKG_OSX_ARCHITECTURES OSX_ARCH_COUNT)
+endif()
+
+if(NOT COMMAND vcpkg_cmake_get_vars)
+    include("${CURRENT_HOST_INSTALLED_DIR}/share/vcpkg-cmake-get-vars/vcpkg-port-config.cmake")
 endif()
 
 vcpkg_cmake_get_vars(cmake_vars_file)
@@ -428,10 +433,7 @@ if("openssl" IN_LIST FEATURES)
     set(WITH_OPENSSL ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-openssl")
-    if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_UWP)
-        string(APPEND OPTIONS " --enable-schannel")
-        set(WITH_SCHANNEL ON)
-    endif()
+    # Slim overlay: только protocol=file, TLS (Schannel) не нужен — меньше кода и линковка без secur32/ncrypt по этой ветке.
 endif()
 
 if("opus" IN_LIST FEATURES)
@@ -723,19 +725,30 @@ if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
     set(OPTIONS "${OPTIONS} --pkg-config-flags=--static")
 endif()
 
-# gifcap overlay: drop most FFmpeg components so the statically linked exe is smaller.
-# Matches crates/gifcap-core/src/ffmpeg/{gif,mp4,webp}.rs (GIF + MP4 capture, MP4→WebP export).
-# MSVC only: h264_mf / Media Foundation is not wired the same on MinGW triplets.
+# gifcap **slim** overlay: GIF capture only (no MP4/WebP in FFmpeg). Screenshots use PNG (`image`), not FFmpeg.
+# Manifest: `vcpkg install --x-no-default-features` (no ffmpeg-libwebp). Rust: `--features slim`. MSVC only.
+#
+# `--disable-everything` сбрасывает все списки компонентов (mux/demux/codec/protocol/bsf/parser/filter/device);
+# дальше включаем только то, что нужно для записи/чтения GIF через file: — меньше .c в сборке и меньше мусора в статике.
+# SIMD: в базовых OPTIONS уже `--enable-runtime-cpudetect` (выбор SSE/AVX-веток по CPU в рантайме).
 if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_UWP AND VCPKG_DETECTED_MSVC)
     string(APPEND OPTIONS
-        " --disable-protocols --enable-protocol=file"
-        " --disable-demuxers --enable-demuxer=mov,mp4"
-        " --disable-muxers --enable-muxer=gif,mov,mp4,webp"
-        " --disable-encoders --enable-encoder=gif,mpeg4,libwebp,libwebp_anim,h264_mf"
-        " --disable-decoders --enable-decoder=h264,mpeg4"
-        " --disable-parsers --enable-parser=h264,mpeg4video"
+        " --disable-schannel"
+        " --disable-network"
+        " --enable-small"
+        " --disable-everything"
+        " --enable-protocol=file"
+        " --enable-demuxer=gif"
+        " --enable-muxer=gif"
+        " --enable-encoder=gif"
+        " --enable-decoder=gif"
+        " --enable-parser=gif"
         " --disable-hwaccels"
         " --disable-devices"
+        " --disable-filters"
+        " --disable-swscale-alpha"
+        " --disable-iamf"
+        " --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages"
     )
 endif()
 

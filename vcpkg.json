@@ -1,14 +1,25 @@
 {
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg-json.schema.json",
+  "name": "gifcap",
+  "version": "0.1.0",
   "dependencies": [
     {
       "name": "ffmpeg",
       "default-features": false,
-      "features": [
-        "avcodec",
-        "avformat",
-        "swscale",
-        "webp"
+      "features": ["avcodec", "avformat", "swscale"]
+    }
+  ],
+  "features": {
+    "ffmpeg-libwebp": {
+      "description": "FFmpeg + libwebp for MP4/WebP recording and export (full build)",
+      "dependencies": [
+        {
+          "name": "ffmpeg",
+          "default-features": false,
+          "features": ["webp"]
+        }
       ]
     }
-  ]
+  },
+  "default-features": ["ffmpeg-libwebp"]
 }

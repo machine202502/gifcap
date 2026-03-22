@@ -39,9 +39,9 @@ desktop.ini
 # Local documentation (not tracked)
 /mdocs/
 
-# vcpkg manifest prefix (артефакты сборки); маркер .vcpkg-root в репозитории — см. README
-/vcpkg_installed/**
-!/vcpkg_installed/.vcpkg-root
+# vcpkg manifest prefixes (артефакты сборки): full vs slim — см. build-full.bash / build-slim.bash
+/vcpkg_installed_full/**
+/vcpkg_installed_slim/**
 
 # other
 notes

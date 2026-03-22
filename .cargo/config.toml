@@ -6,8 +6,7 @@ target = "x86_64-pc-windows-msvc"
 # Статическая линковка FFmpeg (`gifcap-core` default `static-ffmpeg`) — нужен triplet с .lib, не DLL.
 [env]
 VCPKGRS_DEFAULT_TRIPLET = "x64-windows-static-md-release"
-# Manifest vcpkg installs here; `ffmpeg-sys-next` via vcpkg wants `.vcpkg-root` + `installed/` layout.
-# Pointing at the triplet prefix skips vcpkg-rs and avoids that (see README).
-# force=true: иначе пустой FFMPEG_DIR в окружении или старый шелл не подставит путь из конфига.
-# Triplet `x64-windows-static-md-release`: только release-сборка пакетов (без debug .lib в vcpkg).
-FFMPEG_DIR = { value = "vcpkg_installed/x64-windows-static-md-release", relative = true, force = true }
+# Два префикса: `vcpkg_installed_full` и `vcpkg_installed_slim` (--x-install-root в build-*.bash).
+# По умолчанию — full; slim: `export FFMPEG_DIR=.../vcpkg_installed_slim/x64-windows-static-md-release` или build-slim.bash.
+# force=false: скрипт может переопределить FFMPEG_DIR перед `cargo build`.
+FFMPEG_DIR = { value = "vcpkg_installed_full/x64-windows-static-md-release", relative = true, force = false }

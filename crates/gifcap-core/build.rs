@@ -1,5 +1,5 @@
 //! `ffmpeg-sys-next` adds Windows system DLLs when using vcpkg; with `FFMPEG_DIR` it does not.
-//! It also skips transitive static deps — FFmpeg + WebP needs webp/webpmux/sharpyuv (+ zlib when present).
+//! Full FFmpeg links transitive static deps for libwebp; slim omits them.
 
 use std::path::PathBuf;
 
@@ -10,6 +10,7 @@ fn main() {
     }
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=FFMPEG_DIR");
+    println!("cargo:rerun-if-changed=Cargo.toml");
 
     println!("cargo:rustc-link-lib=ole32");
     println!("cargo:rustc-link-lib=secur32");
@@ -26,9 +27,6 @@ fn main() {
     }
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
-    // Transitive static deps for FFmpeg + WebP. vcpkg `libwebp` installs `webp.lib`,
-    // `webpmux.lib`, `sharpyuv.lib`; some trees use `lib*.lib` — try both.
-    // Order: base deps first (static MSVC).
     fn link_first_present(lib_dir: &std::path::Path, candidates: &[&str]) {
         for stem in candidates {
             if lib_dir.join(format!("{stem}.lib")).is_file() {
@@ -36,6 +34,13 @@ fn main() {
                 return;
             }
         }
+    }
+
+    let slim = std::env::vars()
+        .any(|(k, v)| k == "CARGO_FEATURE_SLIM" && v == "1");
+    if slim {
+        link_first_present(&lib_dir, &["zlib"]);
+        return;
     }
 
     link_first_present(&lib_dir, &["zlib"]);

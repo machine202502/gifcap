@@ -1,0 +1,25 @@
+gifcap
+Copyright (c) 2025 The gifcap contributors
+
+The gifcap source code in this repository is licensed under the MIT License.
+See the LICENSE file for the full text.
+
+---
+
+This program incorporates FFmpeg (https://ffmpeg.org), including statically
+linked libraries such as libavcodec, libavformat, libavutil, and libswscale.
+
+FFmpeg is licensed primarily under the GNU Lesser General Public License v2.1
+or later (LGPL-2.1-or-later). Your build configuration may enable additional
+components under other licenses; see https://ffmpeg.org/legal.html
+
+FFmpeg source code corresponding to the version used in this project’s vcpkg
+ports is available from:
+  https://github.com/FFmpeg/FFmpeg
+(use tag n8.0.1 to match ffmpeg 8.0.1 in vcpkg-overlays/*/ffmpeg/vcpkg.json)
+
+Full text of LGPL-2.1:
+  https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+
+For redistribution obligations (especially static linking), see THIRD_PARTY.md
+in this repository.

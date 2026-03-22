@@ -17,6 +17,8 @@ winres = "0.1"
 default = []
 # For Linux/macOS developers building without system FFmpeg (not supported on Windows MSVC).
 bundled-ffmpeg = ["gifcap-core/bundled-ffmpeg"]
+# GIF + screenshots only; use with vcpkg slim overlay and `vcpkg install --x-no-default-features`.
+slim = ["gifcap-core/slim"]
 
 [dependencies]
 gifcap-core = { path = "../gifcap-core" }

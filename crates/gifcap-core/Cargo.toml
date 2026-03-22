@@ -3,7 +3,7 @@ name = "gifcap-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "FFmpeg-backed session (GIF / animated WebP), streaming mux to disk"
+description = "FFmpeg-backed session (GIF, optional MP4/WebP), streaming mux to disk"
 build = "build.rs"
 
 [features]
@@ -20,10 +20,12 @@ bundled-ffmpeg = [
 ]
 # Link FFmpeg statically (vcpkg triplet `x64-windows-static-md-release`, см. README).
 static-ffmpeg = ["ffmpeg-next/static"]
+# GIF + PNG screenshots only; no MP4/WebP recording or export. Match vcpkg slim + `--x-no-default-features`.
+slim = []
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-# Match slim vcpkg manifest: no avdevice/avfilter/swresample (see repo vcpkg.json).
+# Match vcpkg manifest: no avdevice/avfilter/swresample (see repo vcpkg.json).
 ffmpeg-next = { version = "8", default-features = false, features = [
     "codec",
     "format",

@@ -42,7 +42,7 @@ pub struct SessionSnapshot {
     pub log_instance_id: String,
 }
 
-/// Disk-backed session: FFmpeg muxes BGRA into `recording.gif` or `recording.mp4` (WebP uses MP4 until export).
+/// Disk-backed session: FFmpeg muxes BGRA into `recording.gif` (slim) or `recording.gif` / `recording.mp4` (full; WebP mode records MP4 until export).
 pub struct Session {
     pub dir: PathBuf,
     pub width: u32,
@@ -75,6 +75,12 @@ impl Session {
             fs::remove_dir_all(&dir)?;
         }
         ensure_dir(&dir)?;
+        #[cfg(feature = "slim")]
+        if !matches!(format, ExportFormat::Gif) {
+            return Err(CoreError::Gif(
+                "slim build supports only GIF recording (MP4/WebP disabled)".into(),
+            ));
+        }
         let log_instance_id = log_id_from_dir(&dir);
         let frames_captured = Arc::new(AtomicU32::new(0));
         let writer_error = Arc::new(Mutex::new(None));
