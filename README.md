@@ -11,7 +11,7 @@
 
 **Только Windows**, Win32 + статический FFmpeg (через vcpkg). Других ОС нет.
 
-![Пример записи области под панелью (экспорт WebP, full-сборка)](public/screenshot.webp)
+![Пример окна gifcap во время записи](public/screenshot.webp)
 
 ---
 

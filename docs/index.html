@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>gifcap — запись экрана под панелью окна</title>
+    <meta
+      name="description"
+      content="gifcap: запись области экрана под панелью окна в GIF или MP4/WebP. Только Windows."
+    />
+    <link rel="canonical" href="https://machine202502.github.io/gifcap/" />
+    <meta property="og:title" content="gifcap" />
+    <meta property="og:description" content="Запись экрана под панелью окна. Windows." />
+    <meta property="og:image" content="https://machine202502.github.io/gifcap/screenshot.webp" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://machine202502.github.io/gifcap/" />
+    <style>
+      :root {
+        --foam: #f4fbff;
+        --mist: #dceef7;
+        --surf: #9cc9dc;
+        --depth: #3d6f86;
+        --spray: #ffffff;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+        font-size: 1.05rem;
+        line-height: 1.55;
+        color: var(--depth);
+        background: linear-gradient(165deg, var(--foam) 0%, var(--mist) 45%, #c5e3f0 100%);
+      }
+      a {
+        color: var(--depth);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 0.2em;
+      }
+      a:hover {
+        color: #2a5568;
+      }
+      header {
+        padding: 2.5rem 1.25rem 1rem;
+        text-align: center;
+        border-bottom: 1px solid rgba(61, 111, 134, 0.15);
+      }
+      header h1 {
+        margin: 0;
+        font-size: clamp(1.75rem, 5vw, 2.25rem);
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+      header p {
+        margin: 0.65rem 0 0;
+        max-width: 28rem;
+        margin-left: auto;
+        margin-right: auto;
+        opacity: 0.92;
+      }
+      main {
+        max-width: 44rem;
+        margin: 0 auto;
+        padding: 1.75rem 1.25rem 3rem;
+      }
+      section {
+        margin-bottom: 2rem;
+      }
+      section h2 {
+        margin: 0 0 0.75rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--surf);
+      }
+      section[aria-labelledby="preview-heading"] h2,
+      section[aria-labelledby="links-heading"] h2 {
+        text-align: center;
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        color: #1a3d4d;
+      }
+      section[aria-labelledby="links-heading"] nav ul {
+        align-items: center;
+        justify-content: center;
+      }
+      figure {
+        margin: 0;
+        padding: 0.75rem;
+        background: var(--spray);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(61, 111, 134, 0.12);
+        border: 1px solid rgba(156, 201, 220, 0.45);
+      }
+      figure img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 8px;
+        vertical-align: middle;
+      }
+      figcaption {
+        margin-top: 0.65rem;
+        font-size: 0.9rem;
+        text-align: center;
+        color: var(--depth);
+        opacity: 0.85;
+      }
+      nav ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+      }
+      @media (min-width: 480px) {
+        nav ul {
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 0.75rem 1.25rem;
+        }
+      }
+      nav a {
+        display: inline-block;
+        padding: 0.5rem 0.85rem;
+        background: rgba(255, 255, 255, 0.65);
+        border-radius: 999px;
+        border: 1px solid rgba(156, 201, 220, 0.6);
+        text-decoration: none;
+        font-weight: 500;
+      }
+      nav a:hover {
+        background: var(--spray);
+      }
+      .checksums {
+        margin: 1.35rem auto 0;
+        max-width: 36rem;
+        text-align: center;
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: #2a5568;
+      }
+      .checksums dt {
+        margin: 0.85rem 0 0.25rem;
+        font-weight: 650;
+        color: #1a3d4d;
+        letter-spacing: 0.04em;
+      }
+      .checksums dt:first-of-type {
+        margin-top: 0;
+      }
+      .checksums dd {
+        margin: 0;
+      }
+      .checksums code {
+        font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+        font-size: 0.72rem;
+        word-break: break-all;
+        color: #1a3d4d;
+        opacity: 0.95;
+      }
+      footer {
+        text-align: center;
+        padding: 1.5rem 1rem 2rem;
+        font-size: 0.9rem;
+        opacity: 0.75;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>gifcap</h1>
+      <p>
+        Запись прямоугольной области экрана <strong>под</strong> панелью окна. Только
+        Windows: GIF; в полной сборке — ещё MP4 и экспорт WebP.
+      </p>
+    </header>
+
+    <main>
+      <section aria-labelledby="preview-heading">
+        <h2 id="preview-heading">Как выглядит</h2>
+        <figure>
+          <img
+            src="screenshot.webp"
+            alt="Окно gifcap: панель сверху и область захвата под ней, пример записи"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>Пример окна во время записи</figcaption>
+        </figure>
+      </section>
+
+      <section aria-labelledby="links-heading">
+        <h2 id="links-heading">Ссылки</h2>
+        <nav aria-label="Скачать сборки">
+          <ul>
+            <li>
+              <a href="https://github.com/machine202502/gifcap/releases/download/1.0/gifcap.exe"
+                >Скачать gifcap.exe (full)</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://github.com/machine202502/gifcap/releases/download/1.0/gifcap-slim.exe"
+                >Скачать gifcap-slim.exe (slim)</a
+              >
+            </li>
+          </ul>
+        </nav>
+        <dl class="checksums" aria-label="SHA-256 для release 1.0">
+          <dt>gifcap.exe</dt>
+          <dd>
+            <code translate="no"
+              >acc8ec3c8bc79d62915daff943cf814dea58ef68ea1f538af5bd6cc57415ee33</code
+            >
+          </dd>
+          <dt>gifcap-slim.exe</dt>
+          <dd>
+            <code translate="no"
+              >2396fe4f975b532df980e94a6a604a529d335d4aa18417379f2b199ae7fa2c1b</code
+            >
+          </dd>
+        </dl>
+      </section>
+    </main>
+
+    <footer>
+      <p><a href="https://github.com/machine202502/gifcap">github.com/machine202502/gifcap</a></p>
+    </footer>
+  </body>
+</html>
