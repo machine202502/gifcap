@@ -45,7 +45,7 @@ elseif(VCPKG_TARGET_IS_LINUX)
 elseif(VCPKG_TARGET_IS_UWP)
     string(APPEND OPTIONS " --target-os=win32 --enable-w32threads --enable-d3d11va --enable-d3d12va --enable-mediafoundation")
 elseif(VCPKG_TARGET_IS_WINDOWS)
-    # Slim overlay: без DXVA/D3D/Media Foundation — только GIF на диск, HW-декод не нужен и раздувает бинарь.
+    # Slim overlay: no DXVA/D3D/Media Foundation - GIF output only; hardware decode is unnecessary and increases binary size.
     string(APPEND OPTIONS " --target-os=win32 --enable-w32threads")
 elseif(VCPKG_TARGET_IS_OSX)
     string(APPEND OPTIONS " --target-os=darwin --enable-appkit --enable-avfoundation --enable-coreimage --enable-audiotoolbox --enable-videotoolbox")
@@ -433,7 +433,7 @@ if("openssl" IN_LIST FEATURES)
     set(WITH_OPENSSL ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-openssl")
-    # Slim overlay: только protocol=file, TLS (Schannel) не нужен — меньше кода и линковка без secur32/ncrypt по этой ветке.
+    # Slim overlay: protocol=file only, TLS (Schannel) disabled for smaller code and simpler linkage in this branch.
 endif()
 
 if("opus" IN_LIST FEATURES)
@@ -728,9 +728,9 @@ endif()
 # gifcap **slim** overlay: GIF capture only (no MP4/WebP in FFmpeg). Screenshots use PNG (`image`), not FFmpeg.
 # Manifest: `vcpkg install --x-no-default-features` (no ffmpeg-libwebp). Rust: `--features slim`. MSVC only.
 #
-# `--disable-everything` сбрасывает все списки компонентов (mux/demux/codec/protocol/bsf/parser/filter/device);
-# дальше включаем только то, что нужно для записи/чтения GIF через file: — меньше .c в сборке и меньше мусора в статике.
-# SIMD: в базовых OPTIONS уже `--enable-runtime-cpudetect` (выбор SSE/AVX-веток по CPU в рантайме).
+# `--disable-everything` clears all component lists (mux/demux/codec/protocol/bsf/parser/filter/device).
+# Then we enable only what is required for GIF read/write over file:, reducing compile units and static footprint.
+# SIMD: base OPTIONS already include `--enable-runtime-cpudetect` for runtime SSE/AVX path selection.
 if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_UWP AND VCPKG_DETECTED_MSVC)
     string(APPEND OPTIONS
         " --disable-schannel"

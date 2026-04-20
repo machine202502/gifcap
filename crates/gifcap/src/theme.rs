@@ -98,19 +98,29 @@ pub fn apply(ctx: &egui::Context) {
 }
 
 /// Toolbar strip: sea-breeze panel, blue border (not system gray), minimal vertical padding.
-pub fn toolbar_frame(_ctx: &egui::Context) -> egui::Frame {
+pub fn toolbar_frame(_ctx: &egui::Context, at_top: bool) -> egui::Frame {
     let fill = Color32::from_rgb(206, 236, 252);
     let stroke_c = Color32::from_rgb(90, 170, 210);
-    egui::Frame::default()
-        .fill(fill)
-        .stroke(Stroke::new(1.0, stroke_c))
-        .inner_margin(egui::Margin::symmetric(8.0, 4.0))
-        .rounding(Rounding {
+    let rounding = if at_top {
+        Rounding {
             nw: 0.0,
             ne: 0.0,
             sw: 8.0,
             se: 8.0,
-        })
+        }
+    } else {
+        Rounding {
+            nw: 8.0,
+            ne: 8.0,
+            sw: 0.0,
+            se: 0.0,
+        }
+    };
+    egui::Frame::default()
+        .fill(fill)
+        .stroke(Stroke::new(1.0, stroke_c))
+        .inner_margin(egui::Margin::symmetric(8.0, 4.0))
+        .rounding(rounding)
 }
 
 pub fn primary_button(label: impl Into<String>) -> egui::Button<'static> {

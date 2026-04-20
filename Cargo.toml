@@ -3,9 +3,10 @@ resolver = "2"
 members = ["crates/gifcap-core", "crates/gifcap-windows", "crates/gifcap"]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.1.0"
 edition = "2021"
 license = "MIT"
+authors = ["machine202502 <machine202502@gmail.com>"]
 
 # Smaller `gifcap.exe`: LTO drops unused Rust code across crates; `opt-level = "z"` shrinks codegen.
 # Strip removes symbol tables (stack traces in release won’t have Rust symbol names unless you use a PDB).

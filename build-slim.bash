@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Сборка gifcap slim: FFmpeg только GIF + скриншоты PNG; без MP4/WebP в vcpkg и в UI.
-# Перед запуском задай только:
+# Build gifcap slim: FFmpeg with GIF + PNG screenshots only; no MP4/WebP in vcpkg or UI.
+# Before running, set only:
 #   export VCPKG_ROOT=/c/path/to/vcpkg
 #   export LIBCLANG_PATH="/c/Program Files/.../Llvm/x64/bin"
 
 set -euo pipefail
 
 if [[ -z "${VCPKG_ROOT:-}" ]]; then
-  echo "error: задай VCPKG_ROOT — каталог с vcpkg.exe" >&2
+  echo "error: set VCPKG_ROOT to the directory with vcpkg.exe" >&2
   exit 1
 fi
 if [[ -z "${LIBCLANG_PATH:-}" ]]; then
-  echo "error: задай LIBCLANG_PATH — каталог с libclang.dll" >&2
+  echo "error: set LIBCLANG_PATH to the directory with libclang.dll" >&2
   exit 1
 fi
 
@@ -55,4 +55,4 @@ export CARGO_PROFILE_RELEASE_DEBUG=0
 
 cargo build --release -p gifcap --features slim
 
-echo "готово: target/x86_64-pc-windows-msvc/release/gifcap.exe"
+echo "done: target/x86_64-pc-windows-msvc/release/gifcap.exe"

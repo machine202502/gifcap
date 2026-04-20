@@ -1,4 +1,4 @@
-# Статический сайт из /docs без Jekyll (не использовать jekyll-build-pages).
+# Static site from /docs without Jekyll (do not use jekyll-build-pages).
 name: Pages
 
 on:

@@ -1,69 +1,73 @@
 # gifcap
 
-## 1. Что это
+## 1. What It Is
 
-Запись прямоугольной области экрана **под** панелью окна приложения.
+Record a rectangular screen area **below** the app toolbar.
 
-| Сборка | Запись | Экспорт |
-|--------|--------|---------|
-| **full** | GIF или MP4 | WebP из MP4 при сохранении |
-| **slim** | только GIF | PNG скрин кнопкой Screen (`image`, без WebP в FFmpeg) |
+| Build | Recording | Export |
+|---|---|---|
+| **full** | GIF or MP4 | WebP generated from MP4 on save |
+| **slim** | GIF only | PNG screenshot via `Screen` button (no WebP in FFmpeg) |
 
-**Только Windows**, Win32 + статический FFmpeg (через vcpkg). Других ОС нет.
+**Windows only**, Win32 + static FFmpeg (via vcpkg).
 
-![Пример окна gifcap во время записи](public/screenshot.webp)
-
----
-
-## 2. Как пользоваться
-
-- Запуск: `gifcap.exe`.
-- Под верхней панелью — зона захвата.
-- Готовые файлы: `%USERPROFILE%\Pictures\gifcap\`.
-- Пока идёт запись: `%USERPROFILE%\.gifcap\active\` — `recording.gif` (slim и режим GIF в full) или `recording.mp4` (full, MP4/WebP).
-- Лог: `%USERPROFILE%\.gifcap\logs\gifcap.log`.
+![gifcap window preview while recording](public/screenshot.webp)
 
 ---
 
-## 3. Зависимости
+## 2. Usage
 
-| Что | Зачем | Откуда |
-|-----|--------|--------|
-| **Git for Windows** | Git Bash, `cygpath` для путей `C:\...` в `vcpkg.exe` | [git-scm.com](https://git-scm.com/download/win) |
-| **Visual Studio** или Build Tools, workload **Desktop development with C++**, **x64** | MSVC, линковка | [Visual Studio](https://visualstudio.microsoft.com/) |
-| **Clang / LLVM** (VS: компонент *C++ Clang Compiler for Windows*, или отдельный [LLVM](https://github.com/llvm/llvm-project/releases)) | каталог с **`libclang.dll`** для bindgen | см. `LIBCLANG_PATH` ниже |
-| **Rust**, toolchain **`stable-x86_64-pc-windows-msvc`** | `cargo`, `rustc` | [rustup.rs](https://rustup.rs/) → `rustup default stable-x86_64-pc-windows-msvc` |
-| **vcpkg** (клон репо, `bootstrap-vcpkg.bat`) | сборка FFmpeg | [github.com/microsoft/vcpkg](https://github.com/microsoft/vcpkg) |
+- Run `gifcap.exe`.
+- The capture area is located below the top toolbar.
+- Output files are saved to `%USERPROFILE%\Pictures\gifcap\`.
+- During recording, intermediate files are stored in `%USERPROFILE%\.gifcap\active\` as `recording.gif` (slim and GIF mode) or `recording.mp4` (full in MP4/WebP modes).
+- Log file: `%USERPROFILE%\.gifcap\logs\gifcap.log`.
 
-В клоне vcpkg должен быть triplet **`triplets/community/x64-windows-static-md-release.cmake`** (старый клон — `git pull`).
+## Changelog
 
-**Обязательно задать перед сборкой** (и скрипты это проверяют):
+### v1.1
+
+- Added `Fullscreen Record`.
+- During fullscreen recording, the app window is hidden and recording can be stopped from tray.
+- Added `Move Up/Down` for moving the toolbar panel inside the window (top/bottom).
+- Updated button text to `GitHub v1.1`.
+- Translated app texts and documentation to English.
+
+---
+
+## 3. Dependencies
+
+| Tool | Purpose | Source |
+|---|---|---|
+| **Git for Windows** | Git Bash and `cygpath` path conversion for `vcpkg.exe` | [git-scm.com](https://git-scm.com/download/win) |
+| **Visual Studio** or Build Tools, workload **Desktop development with C++**, **x64** | MSVC toolchain and linker | [Visual Studio](https://visualstudio.microsoft.com/) |
+| **Clang / LLVM** (VS component *C++ Clang Compiler for Windows* or standalone [LLVM](https://github.com/llvm/llvm-project/releases)) | `libclang.dll` required by bindgen | see `LIBCLANG_PATH` below |
+| **Rust** toolchain **`stable-x86_64-pc-windows-msvc`** | `cargo`, `rustc` | [rustup.rs](https://rustup.rs/) |
+| **vcpkg** (cloned repo + `bootstrap-vcpkg.bat`) | FFmpeg build and linkage | [microsoft/vcpkg](https://github.com/microsoft/vcpkg) |
+
+Set these variables before building:
 
 ```bash
-export VCPKG_ROOT=/c/путь/к/vcpkg          # каталог, где лежит vcpkg.exe
-export LIBCLANG_PATH="/c/Program Files/Microsoft Visual Studio/…/VC/Tools/Llvm/x64/bin"
+export VCPKG_ROOT=/c/path/to/vcpkg
+export LIBCLANG_PATH="/c/Program Files/Microsoft Visual Studio/.../VC/Tools/Llvm/x64/bin"
 ```
 
-Подставь реальный путь к каталогу с **`libclang.dll`** (версия VS/Build Tools у всех разная). `VCPKG_ROOT` — в стиле Git Bash (`/c/...`).
-
-Дополнительно для **ручной** сборки slim без скрипта — см. п.4: **`FFMPEG_DIR`** на префикс `vcpkg_installed_slim/...` (скрипт выставляет сам).
+For manual slim builds, also set `FFMPEG_DIR` to the slim install prefix in `vcpkg_installed_slim`.
 
 ---
 
-## 4. Сборка вручную (Git Bash)
-
-Рабочая копия = корень репозитория (там `vcpkg.json`). Команды `vcpkg.exe` — из Git Bash; пути для `--x-manifest-root`, `--x-install-root`, `VCPKG_OVERLAY_PORTS` должны быть **Windows** (`C:\...`) — через `cygpath -w`.
+## 4. Manual Build (Git Bash)
 
 ```bash
-cd /c/путь/к/gifcap
-export VCPKG_ROOT=/c/путь/к/vcpkg
+cd /c/path/to/gifcap
+export VCPKG_ROOT=/c/path/to/vcpkg
 export LIBCLANG_PATH="/c/.../Llvm/x64/bin"
 
 WIN_ROOT="$(cygpath -w "$PWD")"
 TRIPLET=x64-windows-static-md-release
 ```
 
-### 4.1 vcpkg: full
+### 4.1 vcpkg full
 
 ```bash
 export VCPKG_OVERLAY_PORTS="$(cygpath -w "$PWD/vcpkg-overlays/full")"
@@ -75,7 +79,7 @@ WIN_INSTALL="$(cygpath -w "$PWD/vcpkg_installed_full")"
   --x-install-root="$WIN_INSTALL"
 ```
 
-### 4.2 vcpkg: slim
+### 4.2 vcpkg slim
 
 ```bash
 export VCPKG_OVERLAY_PORTS="$(cygpath -w "$PWD/vcpkg-overlays/slim")"
@@ -90,14 +94,14 @@ WIN_INSTALL="$(cygpath -w "$PWD/vcpkg_installed_slim")"
 
 ### 4.3 Cargo
 
-**Full** (префикс по умолчанию в `.cargo/config.toml` — `vcpkg_installed_full`; `FFMPEG_DIR` можно не трогать):
+Full:
 
 ```bash
 cargo clean
 cargo build --release -p gifcap
 ```
 
-**Slim** — укажи префикс slim и фичу:
+Slim:
 
 ```bash
 export FFMPEG_DIR="$(cygpath -w "$PWD/vcpkg_installed_slim/$TRIPLET")"
@@ -105,33 +109,23 @@ cargo clean
 cargo build --release -p gifcap --features slim
 ```
 
-Артефакт: `target/x86_64-pc-windows-msvc/release/gifcap.exe`.
-
-Сменил overlay, `FFMPEG_DIR` или triplet → снова **`cargo clean`**, потом build.
+Artifact: `target/x86_64-pc-windows-msvc/release/gifcap.exe`.
 
 ---
 
-## 5. Сборка через bash-скрипты
+## 5. Build Scripts
 
-Из корня репозитория, после `export VCPKG_ROOT` и `export LIBCLANG_PATH`:
+After setting `VCPKG_ROOT` and `LIBCLANG_PATH`, run:
 
 ```bash
-./build-full.bash   # vcpkg_installed_full + cargo без --features slim
-./build-slim.bash    # vcpkg_installed_slim + --x-no-default-features + cargo --features slim
+./build-full.bash
+./build-slim.bash
 ```
 
-Скрипты делают `cargo clean` и выставляют `VCPKG_OVERLAY_PORTS`, `FFMPEG_DIR`, профиль release через переменные `CARGO_PROFILE_RELEASE_*`.
-
 ---
 
-## 6. Лицензии
+## 6. Licenses
 
-Файлы **`LICENSE`**, **`NOTICE`**, **`THIRD_PARTY.md`** сгенерированы нейросетью; автор к ним отношения не имеет и не гарантирует юридическую корректность. Разбирайся сам.
+See `LICENSE`, `NOTICE`, and `THIRD_PARTY.md`.
 
-Исходный код репозитория по задумке — **MIT** (`LICENSE`). В бинарник со vcpkg входит **FFmpeg** (лицензия FFmpeg/LGPL и т.д. — см. [ffmpeg.org/legal.html](https://ffmpeg.org/legal.html)).
-
----
-
-## Обновление overlay под новый vcpkg
-
-`vcpkg-overlays/full/ffmpeg` и `vcpkg-overlays/slim/ffmpeg` — копии порта FFmpeg. Если после `git pull` в vcpkg сборка ломается, синхронизируй **`ports/ffmpeg`** из того же коммита vcpkg в оба overlay.
+The source repository is intended to be **MIT** licensed (`LICENSE`). When FFmpeg from vcpkg is linked into binaries, FFmpeg licensing terms apply as well (see [ffmpeg.org/legal.html](https://ffmpeg.org/legal.html)).

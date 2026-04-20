@@ -39,9 +39,12 @@ desktop.ini
 # Local documentation (not tracked)
 /mdocs/
 
-# vcpkg manifest prefixes (артефакты сборки): full vs slim — см. build-full.bash / build-slim.bash
+# vcpkg manifest prefixes (build artifacts): full vs slim - see build-full.bash / build-slim.bash
 /vcpkg_installed_full/**
 /vcpkg_installed_slim/**
 
 # other
 notes
+
+/release/
+sign-release.ps1

@@ -18,8 +18,8 @@ fn hwnd_from_raw(raw: RawWindowHandle) -> Option<HWND> {
     }
 }
 
-/// Sets the window region so **title bar, borders, and toolbar** stay normal, while the client
-/// area **below** `toolbar_bottom_client_px` is a true “hole” (desktop shows through, no HWND there).
+/// Sets the window region so **title bar, borders, and toolbar** stay normal, while the capture
+/// viewport becomes a true “hole” (desktop shows through, no HWND there).
 ///
 /// Coordinates are Win32 **window** coordinates (origin = top-left of the window including frame).
 ///
@@ -27,6 +27,7 @@ fn hwnd_from_raw(raw: RawWindowHandle) -> Option<HWND> {
 pub fn apply_toolbar_window_region(
     raw: RawWindowHandle,
     toolbar_bottom_client_px: i32,
+    toolbar_at_top: bool,
 ) -> Result<(), CaptureError> {
     let hwnd = hwnd_from_raw(raw).ok_or(CaptureError::Gdi("not a Win32 window"))?;
     unsafe {
@@ -66,12 +67,12 @@ pub fn apply_toolbar_window_region(
             return Ok(());
         }
 
-        let hole = CreateRectRgn(
-            offset_x,
-            offset_y + th,
-            offset_x + cw,
-            offset_y + ch,
-        );
+        let (hole_top, hole_bottom) = if toolbar_at_top {
+            (offset_y + th, offset_y + ch)
+        } else {
+            (offset_y, offset_y + (ch - th))
+        };
+        let hole = CreateRectRgn(offset_x, hole_top, offset_x + cw, hole_bottom);
         if hole.0.is_null() {
             let _ = DeleteObject(full);
             return Err(CaptureError::Gdi("CreateRectRgn (hole) failed"));
@@ -101,10 +102,11 @@ pub fn apply_toolbar_window_region(
     }
 }
 
-/// Screen rectangle of the capture viewport: client area below the toolbar.
+/// Screen rectangle of the capture viewport relative to toolbar position.
 pub fn physical_viewport_rect(
     raw: RawWindowHandle,
     toolbar_bottom_client_px: i32,
+    toolbar_at_top: bool,
 ) -> Result<PhysicalRect, CaptureError> {
     let hwnd = hwnd_from_raw(raw).ok_or(CaptureError::Gdi("not a Win32 window"))?;
     unsafe {
@@ -117,7 +119,8 @@ pub fn physical_viewport_rect(
         if cap_h < 1 || cw < 1 {
             return Err(CaptureError::Gdi("viewport too small"));
         }
-        let mut pt = POINT { x: 0, y: th };
+        let y0 = if toolbar_at_top { th } else { 0 };
+        let mut pt = POINT { x: 0, y: y0 };
         if !ClientToScreen(hwnd, &mut pt).as_bool() {
             return Err(CaptureError::Gdi("ClientToScreen failed"));
         }

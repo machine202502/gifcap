@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>gifcap — запись экрана под панелью окна</title>
+    <title>gifcap - screen capture below toolbar</title>
     <meta
       name="description"
-      content="gifcap: запись области экрана под панелью окна в GIF или MP4/WebP. Только Windows."
+      content="gifcap: capture the screen area below the app toolbar to GIF or MP4/WebP. Windows only."
     />
     <link rel="canonical" href="https://machine202502.github.io/gifcap/" />
     <meta property="og:title" content="gifcap" />
-    <meta property="og:description" content="Запись экрана под панелью окна. Windows." />
+    <meta property="og:description" content="Screen capture below the window toolbar. Windows." />
     <meta property="og:image" content="https://machine202502.github.io/gifcap/screenshot.webp" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://machine202502.github.io/gifcap/" />
@@ -179,56 +179,65 @@
     <header>
       <h1>gifcap</h1>
       <p>
-        Запись прямоугольной области экрана <strong>под</strong> панелью окна. Только
-        Windows: GIF; в полной сборке — ещё MP4 и экспорт WebP.
+        Record a rectangular screen area <strong>below</strong> the app toolbar. Windows only:
+        GIF; plus MP4 and WebP export in the full build.
       </p>
     </header>
 
     <main>
       <section aria-labelledby="preview-heading">
-        <h2 id="preview-heading">Как выглядит</h2>
+        <h2 id="preview-heading">Preview</h2>
         <figure>
           <img
             src="screenshot.webp"
-            alt="Окно gifcap: панель сверху и область захвата под ней, пример записи"
+            alt="gifcap window with top toolbar and capture area below"
             loading="lazy"
             decoding="async"
           />
-          <figcaption>Пример окна во время записи</figcaption>
+          <figcaption>Example window while recording</figcaption>
         </figure>
       </section>
 
       <section aria-labelledby="links-heading">
-        <h2 id="links-heading">Ссылки</h2>
-        <nav aria-label="Скачать сборки">
+        <h2 id="links-heading">Downloads</h2>
+        <nav aria-label="Download builds">
           <ul>
             <li>
-              <a href="https://github.com/machine202502/gifcap/releases/download/1.0/gifcap.exe"
-                >Скачать gifcap.exe (full)</a
+              <a href="https://github.com/machine202502/gifcap/releases/download/1.1/gifcap.exe"
+                >Download gifcap.exe (full)</a
               >
             </li>
             <li>
               <a
-                href="https://github.com/machine202502/gifcap/releases/download/1.0/gifcap-slim.exe"
-                >Скачать gifcap-slim.exe (slim)</a
+                href="https://github.com/machine202502/gifcap/releases/download/1.1/gifcap-slim.exe"
+                >Download gifcap-slim.exe (slim)</a
               >
             </li>
           </ul>
         </nav>
-        <dl class="checksums" aria-label="SHA-256 для release 1.0">
+        <dl class="checksums" aria-label="SHA-256 for release 1.1">
           <dt>gifcap.exe</dt>
           <dd>
             <code translate="no"
-              >acc8ec3c8bc79d62915daff943cf814dea58ef68ea1f538af5bd6cc57415ee33</code
+              >048182f2bb4568104686e6e800a74449c619bcf24d4cc3eee32fed5a02e263f5</code
             >
           </dd>
           <dt>gifcap-slim.exe</dt>
           <dd>
             <code translate="no"
-              >2396fe4f975b532df980e94a6a604a529d335d4aa18417379f2b199ae7fa2c1b</code
+              >2bd355ed62c191ada0a858bfa963780f6a0d8044439b794705d730a487bc7302</code
             >
           </dd>
         </dl>
+      </section>
+
+      <section aria-labelledby="changelog-heading">
+        <h2 id="changelog-heading">Changelog</h2>
+        <ul>
+          <li><strong>v1.1</strong> - Added <code>Fullscreen Record</code> mode with tray-only stop.</li>
+          <li><strong>v1.1</strong> - Added <code>Move Up/Down</code> to quickly dock the toolbar panel to top or bottom.</li>
+          <li><strong>v1.1</strong> - UI labels and website are now fully in English.</li>
+        </ul>
       </section>
     </main>
 

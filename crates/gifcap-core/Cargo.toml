@@ -9,7 +9,7 @@ build = "build.rs"
 [features]
 # On Windows MSVC, `ffmpeg-sys-next/build` does not work (configure/make are Unix-only).
 # Install FFmpeg via vcpkg or set FFMPEG_DIR — see repo README.
-# Default: static FFmpeg → release `gifcap.exe` без avutil/avcodec DLL рядом с exe.
+# Default: static FFmpeg -> release `gifcap.exe` without avutil/avcodec DLLs next to the executable.
 default = ["static-ffmpeg"]
 # Linux/macOS only: compiles FFmpeg from source (slow). Do not use on Windows MSVC.
 # Use: `cargo build -p gifcap-core --no-default-features --features bundled-ffmpeg`
@@ -18,7 +18,7 @@ bundled-ffmpeg = [
     "ffmpeg-next/build-zlib",
     "ffmpeg-next/build-lib-webp",
 ]
-# Link FFmpeg statically (vcpkg triplet `x64-windows-static-md-release`, см. README).
+# Link FFmpeg statically (vcpkg triplet `x64-windows-static-md-release`, see README).
 static-ffmpeg = ["ffmpeg-next/static"]
 # GIF + PNG screenshots only; no MP4/WebP recording or export. Match vcpkg slim + `--x-no-default-features`.
 slim = []
