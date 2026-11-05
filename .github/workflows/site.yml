@@ -41,33 +41,50 @@ jobs:
           tag=$(cat /tmp/tag.txt)
           version=${tag#v}
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release $tag"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
           mkdir -p /tmp/gifcap-release
           cd /tmp/gifcap-release
-          zip_url=$(gh release view --repo "$GITHUB_REPOSITORY" --json assets \
-            --jq '.assets[] | select(.name | test("windows-x64\\.zip$")) | .browserDownloadUrl' | head -1)
-          setup_url=$(gh release view --repo "$GITHUB_REPOSITORY" --json assets \
-            --jq '.assets[] | select(.name | test("-setup\\.exe$")) | .browserDownloadUrl' | head -1)
-          if [ -z "$zip_url" ]; then
+          asset() {
+            gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets \
+              --jq "[.assets[] | select(.name | endswith(\"$1\"))][0].$2 // \"\""
+          }
+          digest_hex() {
+            local digest="$1"
+            case "$digest" in
+              sha256:*) printf '%s' "${digest#sha256:}" ;;
+              *) printf '' ;;
+            esac
+          }
+          fill_asset() {
+            local suffix="$1" key="$2"
+            local name url digest hash size
+            name=$(asset "$suffix" name)
+            if [ -z "$name" ]; then
+              echo "${key}_hash=-" >> "$GITHUB_OUTPUT"
+              echo "${key}_size=-" >> "$GITHUB_OUTPUT"
+              echo "No $suffix in $tag"
+              return
+            fi
+            url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${name}"
+            digest=$(asset "$suffix" digest)
+            hash=$(digest_hex "$digest")
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o "$key" "$url"
+            size=$(awk -v b="$(stat -c %s "$key")" 'BEGIN{printf "%.1f", b/1048576}')
+            if [ -z "$hash" ]; then
+              hash=$(sha256sum "$key" | cut -d' ' -f1)
+            fi
+            echo "${key}_hash=$hash" >> "$GITHUB_OUTPUT"
+            echo "${key}_size=$size" >> "$GITHUB_OUTPUT"
+            echo "$name $size MB $hash"
+          }
+          if [ -z "$(asset 'windows-x64.zip' name)" ]; then
             echo "Latest release has no portable zip yet — deploying with placeholders."
             echo "version=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o zip "$zip_url"
-          {
-            echo "zip_hash=$(sha256sum zip | cut -d' ' -f1)"
-            echo "zip_size=$(awk -v b="$(stat -c %s zip)" 'BEGIN{printf "%.1f", b/1048576}')"
-          } >> "$GITHUB_OUTPUT"
-          if [ -n "$setup_url" ]; then
-            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o setup "$setup_url"
-            {
-              echo "setup_hash=$(sha256sum setup | cut -d' ' -f1)"
-              echo "setup_size=$(awk -v b="$(stat -c %s setup)" 'BEGIN{printf "%.1f", b/1048576}')"
-            } >> "$GITHUB_OUTPUT"
-          else
-            echo "setup_hash=-"
-            echo "setup_size=-"
-            echo "Latest release has no installer yet."
-          fi
+          fill_asset 'windows-x64.zip' zip
+          fill_asset '-setup.exe' setup
 
       - name: Fill release data into the site
         if: steps.release.outputs.version != ''
