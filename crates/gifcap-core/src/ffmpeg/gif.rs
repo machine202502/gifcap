@@ -176,3 +176,34 @@ pub(super) fn writer_loop(
     output.write_trailer().map_err(map_ffmpeg)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::mpsc;
+
+    #[test]
+    fn one_bgra_frame_becomes_a_gif() {
+        ffmpeg::init().expect("ffmpeg::init");
+        let width = 16u32;
+        let height = 16u32;
+        let mut bgra = vec![0u8; (width * height * 4) as usize];
+        for pixel in bgra.chunks_exact_mut(4) {
+            pixel[2] = 220;
+            pixel[3] = 255;
+        }
+        let dir = std::env::temp_dir().join(format!("gifcap-gif-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("one.gif");
+        let (tx, rx) = mpsc::channel();
+        let (return_tx, _return_rx) = mpsc::channel();
+        tx.send(bgra).unwrap();
+        drop(tx);
+        writer_loop(rx, return_tx, path.clone(), width, height, 10.0, 90)
+            .expect("GIF writer");
+        let bytes = std::fs::read(&path).expect("gif file");
+        assert!(bytes.starts_with(b"GIF8"), "not a GIF: {bytes:?}");
+        assert!(bytes.len() > 32);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

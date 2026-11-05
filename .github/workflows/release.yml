@@ -64,7 +64,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: vcpkg_installed
-          key: ffmpeg-8.0.1-gif-c87dcfa7-${{ hashFiles('vcpkg.json', 'vcpkg-overlays/ffmpeg/vcpkg.json', 'triplets/x64-windows-static-md-release.cmake') }}
+          key: ffmpeg-8.0.1-gif-c87dcfa7-${{ hashFiles('vcpkg.json', 'vcpkg-overlays/ffmpeg/vcpkg.json', 'vcpkg-overlays/ffmpeg/portfile.cmake', 'triplets/x64-windows-static-md-release.cmake') }}
 
       - name: Build FFmpeg
         if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
@@ -89,7 +89,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: vcpkg_installed
-          key: ffmpeg-8.0.1-gif-c87dcfa7-${{ hashFiles('vcpkg.json', 'vcpkg-overlays/ffmpeg/vcpkg.json', 'triplets/x64-windows-static-md-release.cmake') }}
+          key: ffmpeg-8.0.1-gif-c87dcfa7-${{ hashFiles('vcpkg.json', 'vcpkg-overlays/ffmpeg/vcpkg.json', 'vcpkg-overlays/ffmpeg/portfile.cmake', 'triplets/x64-windows-static-md-release.cmake') }}
 
       - name: Test
         shell: pwsh

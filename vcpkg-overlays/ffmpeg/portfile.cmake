@@ -725,12 +725,10 @@ if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
     set(OPTIONS "${OPTIONS} --pkg-config-flags=--static")
 endif()
 
-# gifcap **slim** overlay: GIF capture only (no MP4/WebP in FFmpeg). Screenshots use PNG (`image`), not FFmpeg.
-# Manifest: `vcpkg install --x-no-default-features` (no ffmpeg-libwebp). Rust: `--features slim`. MSVC only.
-#
-# `--disable-everything` clears all component lists (mux/demux/codec/protocol/bsf/parser/filter/device).
-# Then we enable only what is required for GIF read/write over file:, reducing compile units and static footprint.
-# SIMD: base OPTIONS already include `--enable-runtime-cpudetect` for runtime SSE/AVX path selection.
+# gifcap slim overlay: GIF file IO plus the palette graph used by the recorder.
+# `--disable-everything` clears muxers, demuxers, codecs, protocols, filters and devices.
+# The graph is buffer -> scale -> split -> palettegen/paletteuse -> buffersink.
+# FFmpeg inserts the format filter itself when pixel formats do not match.
 if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_UWP AND VCPKG_DETECTED_MSVC)
     string(APPEND OPTIONS
         " --disable-schannel"
@@ -743,10 +741,9 @@ if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_UWP AND VCPKG_DETECTED_MSVC)
         " --enable-encoder=gif"
         " --enable-decoder=gif"
         " --enable-parser=gif"
+        " --enable-filter=buffer,buffersink,format,scale,split,palettegen,paletteuse"
         " --disable-hwaccels"
         " --disable-devices"
-        " --disable-filters"
-        " --disable-swscale-alpha"
         " --disable-iamf"
         " --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages"
     )

@@ -19,6 +19,14 @@ fn main() {
     println!("cargo:rustc-link-lib=ws2_32");
     println!("cargo:rustc-link-lib=bcrypt");
     println!("cargo:rustc-link-lib=user32");
+    // A fuller static FFmpeg still contains Media Foundation and Schannel objects.
+    // The slim GIF prefix compiles those out; these import libs satisfy the fuller one.
+    println!("cargo:rustc-link-lib=strmiids");
+    println!("cargo:rustc-link-lib=mfuuid");
+    println!("cargo:rustc-link-lib=mfplat");
+    println!("cargo:rustc-link-lib=mf");
+    println!("cargo:rustc-link-lib=crypt32");
+    println!("cargo:rustc-link-lib=ncrypt");
 
     let Some(dir) = std::env::var_os("FFMPEG_DIR").map(PathBuf::from) else {
         return;

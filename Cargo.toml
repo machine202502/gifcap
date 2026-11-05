@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/gifcap-core", "crates/gifcap-windows", "crates/gifcap"]
 
 [workspace.package]
-version = "1.2.1"
+version = "1.2.2"
 edition = "2021"
 license = "MIT"
 authors = ["machine202502 <machine202502@gmail.com>"]
