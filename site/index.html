@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru" data-size-unit="МБ">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gifcap — запись GIF выбранной области экрана</title>
+  <meta name="description" content="gifcap записывает GIF той области экрана, которую вы оставили рядом с панелью. Маленькая программа для Windows, без записи всего экрана.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://machine202502.github.io/gifcap/">
+  <link rel="alternate" hreflang="ru" href="https://machine202502.github.io/gifcap/">
+  <link rel="alternate" hreflang="en" href="https://machine202502.github.io/gifcap/en/">
+  <link rel="alternate" hreflang="x-default" href="https://machine202502.github.io/gifcap/en/">
+  <meta property="og:title" content="gifcap — запись GIF выбранной области">
+  <meta property="og:description" content="Обведите участок экрана и получите GIF. Windows.">
+  <meta property="og:url" content="https://machine202502.github.io/gifcap/">
+  <meta property="og:image" content="https://machine202502.github.io/gifcap/assets/screenshot.webp">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var chosen = null;
+      try { chosen = localStorage.getItem("gifcap-lang"); } catch (e) {}
+      var want = chosen === "ru" || chosen === "en" ? chosen : null;
+      if (!want) {
+        var langs = navigator.languages || [navigator.language || "en"];
+        want = "en";
+        for (var i = 0; i < langs.length; i++) {
+          var tag = String(langs[i]).toLowerCase();
+          if (tag.indexOf("ru") === 0) { want = "ru"; break; }
+          if (tag.indexOf("en") === 0) { want = "en"; break; }
+        }
+      }
+      var here = document.documentElement.lang.indexOf("ru") === 0 ? "ru" : "en";
+      var bot = /bot|crawl|spider|slurp|facebookexternalhit|preview/i.test(navigator.userAgent);
+      if (!bot && want !== here) location.replace(here === "ru" ? "en/" : "../");
+    })();
+  </script>
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="#top">gifcap</a>
+    <nav class="nav-links">
+      <a href="#how">Как это работает</a>
+      <a href="#download">Скачать</a>
+    </nav>
+    <nav class="langs" aria-label="Язык">
+      <a href="./" hreflang="ru" lang="ru" data-lang-set="ru" aria-current="true">RU</a>
+      <a href="en/" hreflang="en" lang="en" data-lang-set="en">EN</a>
+    </nav>
+  </header>
+  <main id="top">
+    <section class="hero">
+      <div>
+        <h1>GIF той области, которую вы оставили.</h1>
+        <p class="lead">Панель остаётся на экране. Под ней или над ней — прозрачное окно. Записывается только этот кусок, сразу в GIF.</p>
+        <a class="btn" data-dl-zip href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64.zip">Скачать для Windows</a>
+        <p class="hint">Версия <span data-version>@@VERSION@@</span> · исходники MIT · программа с FFmpeg под LGPL</p>
+      </div>
+      <figure class="shot">
+        <img src="assets/screenshot.webp" alt="Окно gifcap: панель сверху и область записи под ней">
+        <figcaption>Область под панелью и есть запись</figcaption>
+      </figure>
+    </section>
+    <section class="section" id="how">
+      <h2>Только нужный прямоугольник</h2>
+      <p class="section-sub">Нет записи всего экрана и нет сворачивания в трей. Окно остаётся там, куда вы его поставили.</p>
+      <div class="cards">
+        <article class="card"><h3>Область</h3><p>Измените размер окна. Запись берёт пиксели рядом с панелью.</p></article>
+        <article class="card"><h3>GIF</h3><p>Кадры сразу пишутся в GIF. Палитра и прямоугольные отличия держат файл меньше без мыла.</p></article>
+        <article class="card"><h3>Снимок</h3><p>Кнопка Screen сохраняет ту же область как PNG.</p></article>
+      </div>
+    </section>
+    <section class="section" id="download">
+      <h2>Скачать</h2>
+      <div class="dl">
+        <a class="btn" data-dl-zip href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64.zip">gifcap-<span data-version>@@VERSION@@</span>-windows-x64.zip</a>
+        <p>Размер: <span data-size-zip>@@SIZE_ZIP@@ МБ</span></p>
+        <p>SHA-256: <span class="hash" data-hash-zip>@@HASH_ZIP@@</span></p>
+        <p class="license-note">Исходный код — <a href="https://github.com/machine202502/gifcap/blob/main/LICENSE">MIT</a>. В программе статически собран FFmpeg, поэтому файл программы под <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">GNU LGPL 2.1 или новее</a>. В архиве лежат COPYING, NOTICE и THIRD-PARTY.txt.</p>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">gifcap · <a href="https://github.com/machine202502/gifcap">GitHub</a></footer>
+  <script src="app.js"></script>
+</body>
+</html>

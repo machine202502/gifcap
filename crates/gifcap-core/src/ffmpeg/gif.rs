@@ -3,16 +3,15 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use ffmpeg_next as ffmpeg;
 use ffmpeg::{
-    codec, encoder, format, frame, software::scaling, util::format::Pixel,
-    util::mathematics::Rescale, Dictionary, Packet, Rational,
+    codec, encoder, filter, format, frame, util::format::Pixel, util::mathematics::Rescale,
+    Dictionary, Packet, Rational,
 };
 
 use crate::CoreError;
 
 use super::common::{fill_bgra_frame, map_ffmpeg};
 
-/// GIF frame delay is stored in **centiseconds** (1/100 s). Pick `d ∈ [2, 500]` minimizing
-/// |100/d − fps| so playback CFR matches the UI FPS better than `round(100/fps)`.
+/// GIF delay is stored in centiseconds. Choose the delay whose playback rate is closest to `fps`.
 fn best_delay_centisecs(fps: f64) -> i32 {
     if !fps.is_finite() || fps <= 0.0 {
         return 10;
@@ -21,8 +20,7 @@ fn best_delay_centisecs(fps: f64) -> i32 {
     let mut best_d = 10i32;
     let mut best_err = f64::MAX;
     for d in 2..=500i32 {
-        let eff = 100.0 / f64::from(d);
-        let err = (eff - fps).abs();
+        let err = (100.0 / f64::from(d) - fps).abs();
         if err < best_err {
             best_err = err;
             best_d = d;
@@ -31,16 +29,58 @@ fn best_delay_centisecs(fps: f64) -> i32 {
     best_d
 }
 
-/// Output size for GIF: fewer pixels at lower quality (main lever for file size). Uses √(
-/// *q*/100) per axis so pixel count roughly tracks *q* (e.g. *q*=25 → half side, ~¼ pixels).
-fn gif_output_dimensions(width: u32, height: u32, q: u8) -> (u32, u32) {
-    let q = q.clamp(1, 100) as f64;
-    let s = (q / 100.0).sqrt().clamp(0.2, 1.0);
-    let mut out_w = ((f64::from(width) * s).round() as u32).clamp(2, width);
-    let mut out_h = ((f64::from(height) * s).round() as u32).clamp(2, height);
-    out_w -= out_w % 2;
-    out_h -= out_h % 2;
-    (out_w.max(2), out_h.max(2))
+fn even(value: u32) -> u32 {
+    (value & !1).max(2)
+}
+
+/// Same palette path ezcap uses for GIF, applied to one frame so a long recording stays on disk.
+/// `diff_mode=rectangle` keeps unchanged screen regions out of the file; sierra2 keeps edges clean.
+fn palettize(
+    src: &frame::Video,
+    out_w: u32,
+    out_h: u32,
+    colors: u32,
+) -> Result<frame::Video, CoreError> {
+    let mut graph = filter::Graph::new();
+    let args = format!(
+        "video_size={}x{}:pix_fmt=bgra:time_base=1/100:pixel_aspect=1/1",
+        src.width(),
+        src.height()
+    );
+    let buffer = filter::find("buffer").ok_or_else(|| {
+        CoreError::Export("FFmpeg buffer filter is unavailable".into())
+    })?;
+    let sink = filter::find("buffersink").ok_or_else(|| {
+        CoreError::Export("FFmpeg buffersink filter is unavailable".into())
+    })?;
+    graph.add(&buffer, "in", &args).map_err(map_ffmpeg)?;
+    graph.add(&sink, "out", "").map_err(map_ffmpeg)?;
+    let spec = format!(
+        "scale={out_w}:{out_h}:flags=lanczos,split[a][b];[a]palettegen=max_colors={colors}:stats_mode=single[p];[b][p]paletteuse=dither=sierra2:diff_mode=rectangle"
+    );
+    graph
+        .output("in", 0)
+        .map_err(map_ffmpeg)?
+        .input("out", 0)
+        .map_err(map_ffmpeg)?
+        .parse(&spec)
+        .map_err(map_ffmpeg)?;
+    graph.validate().map_err(map_ffmpeg)?;
+    {
+        let mut input = graph
+            .get("in")
+            .ok_or_else(|| CoreError::Export("GIF filter has no input".into()))?;
+        input.source().add(src).map_err(map_ffmpeg)?;
+        input.source().flush().map_err(map_ffmpeg)?;
+    }
+    let mut out = frame::Video::empty();
+    graph
+        .get("out")
+        .ok_or_else(|| CoreError::Export("GIF filter has no output".into()))?
+        .sink()
+        .frame(&mut out)
+        .map_err(map_ffmpeg)?;
+    Ok(out)
 }
 
 pub(super) fn writer_loop(
@@ -53,21 +93,15 @@ pub(super) fn writer_loop(
     quality: u8,
 ) -> Result<(), CoreError> {
     let q = quality.clamp(1, 100);
-    let (out_w, out_h) = gif_output_dimensions(width, height, q);
-    let scale_flags = if q >= 50 {
-        scaling::flag::Flags::BICUBIC | scaling::flag::Flags::FULL_CHR_H_INT
-    } else {
-        scaling::flag::Flags::BILINEAR | scaling::flag::Flags::FULL_CHR_H_INT
-    };
+    let colors = 64 + u32::from(q) * 192 / 100;
+    let (out_w, out_h) = (even(width), even(height));
     let delay_cs_i32 = best_delay_centisecs(fps);
-    let delay_cs = delay_cs_i32 as i64;
+    let delay_cs = i64::from(delay_cs_i32);
     let cs_tb = Rational(1, 100);
     let fps_r = Rational(100, delay_cs_i32);
 
     let codec = encoder::find(codec::Id::GIF).ok_or_else(|| {
-        CoreError::Export(
-            "FFmpeg has no GIF encoder (unusual). Rebuild FFmpeg with avcodec.".into(),
-        )
+        CoreError::Export("FFmpeg has no GIF encoder. Rebuild FFmpeg with avcodec.".into())
     })?;
 
     let mut output = format::output(&output_path).map_err(map_ffmpeg)?;
@@ -81,15 +115,11 @@ pub(super) fn writer_loop(
         .map_err(map_ffmpeg)?;
     enc_ctx.set_width(out_w);
     enc_ctx.set_height(out_h);
-    enc_ctx.set_format(Pixel::RGB8);
+    enc_ctx.set_format(Pixel::PAL8);
     enc_ctx.set_time_base(cs_tb);
     enc_ctx.set_frame_rate(Some(fps_r));
 
-    let mut opts = Dictionary::new();
-    opts.set("gifflags", "0");
-
-    let mut encoder = enc_ctx.open_with(opts).map_err(map_ffmpeg)?;
-    let enc_pixel = encoder.format();
+    let mut encoder = enc_ctx.open_with(Dictionary::new()).map_err(map_ffmpeg)?;
     stream.set_parameters(&encoder);
     drop(stream);
     output.write_header().map_err(map_ffmpeg)?;
@@ -99,20 +129,7 @@ pub(super) fn writer_loop(
         .time_base();
     let enc_tb = encoder.time_base();
 
-    let mut scaler = scaling::Context::get(
-        Pixel::BGRA,
-        width,
-        height,
-        enc_pixel,
-        out_w,
-        out_h,
-        scale_flags,
-    )
-    .map_err(map_ffmpeg)?;
-
     let mut bgra_src = frame::Video::new(Pixel::BGRA, width, height);
-    let mut enc_frame = frame::Video::empty();
-
     let mut t_cs: i64 = 0;
     let mut pkt = Packet::empty();
     let d_st = delay_cs.rescale(cs_tb, st_tb);
@@ -144,23 +161,18 @@ pub(super) fn writer_loop(
         };
 
         fill_bgra_frame(&buf, width, height, &mut bgra_src)?;
-        scaler
-            .run(&bgra_src, &mut enc_frame)
-            .map_err(map_ffmpeg)?;
-
+        let mut enc_frame = palettize(&bgra_src, out_w, out_h, colors)?;
         let pts = t_cs.rescale(cs_tb, enc_tb);
         enc_frame.set_pts(Some(pts));
         t_cs = t_cs.saturating_add(delay_cs);
 
         encoder.send_frame(&enc_frame).map_err(map_ffmpeg)?;
         flush_packets(&mut encoder, &mut output, &mut pkt, &mut mux_pts)?;
-
         let _ = return_tx.send(buf);
     }
 
     encoder.send_eof().map_err(map_ffmpeg)?;
     flush_packets(&mut encoder, &mut output, &mut pkt, &mut mux_pts)?;
-
     output.write_trailer().map_err(map_ffmpeg)?;
     Ok(())
 }

@@ -9,8 +9,6 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 #[cfg(windows)]
-use std::sync::atomic::{AtomicBool, Ordering};
-#[cfg(windows)]
 use std::sync::Arc;
 
 #[cfg(windows)]
@@ -40,70 +38,14 @@ const MIN_CAPTURE_PX: u32 = 32;
 /// Minimum inner width in **physical pixels** (UI may clip; capture still needs a larger area to record).
 const MIN_INNER_WIDTH_PX: f32 = 48.0;
 
-/// Per-format encoder quality defaults (1–100), remembered when switching format.
-const DEFAULT_QUALITY_GIF: u8 = 8;
-const DEFAULT_QUALITY_WEBP: u8 = 50;
-/// MP4: 100 reproduces previous libx264 CRF 17 / h264_mf quality ~90 mapping.
-const DEFAULT_QUALITY_MP4: u8 = 100;
+/// GIF encoder quality (1–100).
+const DEFAULT_QUALITY_GIF: u8 = 90;
 /// Minimum inner height in **points** (toolbar rows + capture strip).
 const MIN_INNER_HEIGHT_PT: f32 = 140.0;
 
 const STATUS_SAVED_PREFIX: &str = "Saved ";
 
 const GITHUB_REPO_URL: &str = "https://github.com/machine202502/gifcap";
-
-#[cfg(windows)]
-type CommandBusRx = Receiver<gifcap_windows::TrayCommand>;
-
-#[cfg(windows)]
-struct UiRuntimeHandle {
-    prev_window_pos: Option<egui::Pos2>,
-}
-
-#[cfg(windows)]
-impl UiRuntimeHandle {
-    fn new() -> Self {
-        Self {
-            prev_window_pos: None,
-        }
-    }
-
-    fn hide_for_fullscreen_recording(&mut self, ctx: &egui::Context) {
-        self.prev_window_pos = ctx
-            .input(|i| i.viewport().outer_rect)
-            .map(|r| egui::pos2(r.left(), r.top()));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
-    }
-
-    fn show(&mut self, ctx: &egui::Context) {
-        if let Some(pos) = self.prev_window_pos.take() {
-            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
-        }
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-    }
-}
-
-#[cfg(windows)]
-enum FullscreenWorkerCommand {
-    StopSave,
-    StopDiscard,
-}
-
-#[cfg(windows)]
-enum FullscreenWorkerEvent {
-    Saved(PathBuf),
-    Discarded,
-    Failed(String),
-}
-
-#[cfg(windows)]
-struct FullscreenRecorderHandle {
-    cmd_tx: mpsc::Sender<FullscreenWorkerCommand>,
-    event_rx: Receiver<FullscreenWorkerEvent>,
-}
 
 #[cfg(windows)]
 fn main() -> eframe::Result<()> {
@@ -152,10 +94,7 @@ struct GifcapApp {
     fps: f32,
     output_format: ExportFormat,
     quality_gif: u8,
-    #[cfg(not(feature = "slim"))]
-    quality_webp: u8,
-    #[cfg(not(feature = "slim"))]
-    quality_mp4: u8,
+    show_about: bool,
     recording: bool,
     paused: bool,
     session: Option<Session>,
@@ -168,17 +107,8 @@ struct GifcapApp {
     /// After copying saved path to clipboard; show brief "Copied".
     copy_feedback_until: Option<Instant>,
     export_busy: bool,
-    /// Format of the export in flight (spinner copy for WebP vs GIF/MP4).
     export_busy_format: Option<ExportFormat>,
     export_rx: Option<Receiver<Result<PathBuf, String>>>,
-    /// WebP transcode only: set to `true` from UI to request cancellation.
-    export_cancel: Option<Arc<AtomicBool>>,
-    tray_tx: mpsc::Sender<gifcap_windows::TrayCommand>,
-    tray_rx: CommandBusRx,
-    _tray: Option<gifcap_windows::RecordingTray>,
-    ui_runtime: UiRuntimeHandle,
-    fullscreen_recording: bool,
-    fullscreen_worker: Option<FullscreenRecorderHandle>,
     panel_at_top: bool,
 }
 
@@ -209,48 +139,13 @@ impl GifcapApp {
         log_error(Some(&id), msg);
     }
 
-    fn ensure_tray_runtime(&mut self, ctx: &egui::Context, frame: &eframe::Frame) {
-        if self._tray.is_some() {
-            return;
-        }
-        let app_hwnd = frame
-            .window_handle()
-            .ok()
-            .map(|h| match h.as_raw() {
-                RawWindowHandle::Win32(w) => w.hwnd.get() as isize,
-                _ => 0,
-            })
-            .unwrap_or(0);
-        let sid = self.log_sid();
-        let tray_log = Arc::new(move |message: &str| {
-            log_info(Some(&sid), message);
-        });
-        match gifcap_windows::RecordingTray::start(self.tray_tx.clone(), tray_log, app_hwnd) {
-            Ok(tray) => {
-                self._tray = Some(tray);
-                self.log_i("tray runtime initialized");
-            }
-            Err(e) => self.log_e(&format!("tray start failed: {e}")),
-        }
-    }
-
-    fn set_tray_stop_enabled(&self, enabled: bool) {
-        if let Some(tray) = &self._tray {
-            tray.set_stop_enabled(enabled);
-        }
-    }
-
     fn new(session_id: Uuid) -> Self {
-        let (tray_tx, tray_rx) = mpsc::channel::<gifcap_windows::TrayCommand>();
         Self {
             session_id,
             fps: 10.0,
             output_format: ExportFormat::Gif,
             quality_gif: DEFAULT_QUALITY_GIF,
-            #[cfg(not(feature = "slim"))]
-            quality_webp: DEFAULT_QUALITY_WEBP,
-            #[cfg(not(feature = "slim"))]
-            quality_mp4: DEFAULT_QUALITY_MP4,
+            show_about: false,
             recording: false,
             paused: false,
             session: None,
@@ -262,13 +157,6 @@ impl GifcapApp {
             export_busy: false,
             export_busy_format: None,
             export_rx: None,
-            export_cancel: None,
-            tray_tx,
-            tray_rx,
-            _tray: None,
-            ui_runtime: UiRuntimeHandle::new(),
-            fullscreen_recording: false,
-            fullscreen_worker: None,
             panel_at_top: true,
         }
     }
@@ -285,7 +173,6 @@ impl eframe::App for GifcapApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        self.ensure_tray_runtime(ctx, frame);
         self.fps = self.fps.clamp(4.0, 60.0);
         let text_main = egui::Color32::from_rgb(15, 65, 85);
 
@@ -306,7 +193,6 @@ impl eframe::App for GifcapApp {
                     self.export_busy = false;
                     self.export_busy_format = None;
                     self.export_rx = None;
-                    self.export_cancel = None;
                 }
                 Ok(Err(e)) => {
                     if e.contains("cancelled") {
@@ -319,7 +205,6 @@ impl eframe::App for GifcapApp {
                     self.export_busy = false;
                     self.export_busy_format = None;
                     self.export_rx = None;
-                    self.export_cancel = None;
                 }
                 Err(TryRecvError::Empty) => {
                     ctx.request_repaint_after(Duration::from_millis(32));
@@ -329,30 +214,9 @@ impl eframe::App for GifcapApp {
                     self.export_busy = false;
                     self.export_busy_format = None;
                     self.export_rx = None;
-                    self.export_cancel = None;
                 }
             }
         }
-
-        while let Ok(cmd) = self.tray_rx.try_recv() {
-            self.log_a(&format!("tray command received: {cmd:?}"));
-            match cmd {
-                gifcap_windows::TrayCommand::StopRecording => {
-                    if self.recording {
-                        if self.fullscreen_recording {
-                            self.stop_fullscreen_and_save();
-                        } else {
-                            self.stop_and_save_async(ctx);
-                        }
-                    }
-                }
-                gifcap_windows::TrayCommand::QuitApp => {
-                    self.cleanup_on_exit();
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                }
-            }
-        }
-        self.poll_fullscreen_worker(ctx);
 
         let ui_enabled = !self.export_busy;
 
@@ -365,31 +229,14 @@ impl eframe::App for GifcapApp {
             .frame(theme::toolbar_frame(ctx, self.panel_at_top))
             .show(ctx, |ui| {
                 if self.export_busy {
-                    let busy_label = {
-                        #[cfg(feature = "slim")]
-                        {
-                            "Saving file…"
-                        }
-                        #[cfg(not(feature = "slim"))]
-                        {
-                            match self.export_busy_format {
-                                Some(ExportFormat::Webp) => "Converting to WebP…",
-                                _ => "Saving file…",
-                            }
-                        }
-                    };
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
                             ui.spinner();
-                            ui.label(egui::RichText::new(busy_label).small().color(text_main));
-                            #[cfg(not(feature = "slim"))]
-                            if self.export_busy_format == Some(ExportFormat::Webp) {
-                                if ui.add(theme::secondary_button("Cancel")).clicked() {
-                                    if let Some(c) = &self.export_cancel {
-                                        c.store(true, Ordering::Relaxed);
-                                    }
-                                }
-                            }
+                            ui.label(
+                                egui::RichText::new("Saving file…")
+                                    .small()
+                                    .color(text_main),
+                            );
                         });
                     });
                     return;
@@ -414,76 +261,23 @@ impl eframe::App for GifcapApp {
                             ui.separator();
 
                             ui.add_enabled_ui(!self.recording, |ui| {
-                                #[cfg(feature = "slim")]
+                                let mut q = i32::from(self.quality_gif);
+                                ui.label(egui::RichText::new("Quality").small().color(text_main));
+                                if ui
+                                    .add_sized(
+                                        [120.0, 18.0],
+                                        egui::Slider::new(&mut q, 1..=100)
+                                            .integer()
+                                            .suffix("%")
+                                            .text_color(text_main)
+                                            .handle_shape(egui::style::HandleShape::Rect {
+                                                aspect_ratio: 0.45,
+                                            })
+                                            .trailing_fill(true),
+                                    )
+                                    .changed()
                                 {
-                                    let q_ref: &mut u8 = &mut self.quality_gif;
-                                    let mut q = i32::from(*q_ref);
-                                    ui.label(
-                                        egui::RichText::new("Quality").small().color(text_main),
-                                    );
-                                    if ui
-                                        .add_sized(
-                                            [120.0, 18.0],
-                                            egui::Slider::new(&mut q, 1..=100)
-                                                .integer()
-                                                .suffix("%")
-                                                .text_color(text_main)
-                                                .handle_shape(egui::style::HandleShape::Rect {
-                                                    aspect_ratio: 0.45,
-                                                })
-                                                .trailing_fill(true),
-                                        )
-                                        .changed()
-                                    {
-                                        *q_ref = q.clamp(1, 100) as u8;
-                                    }
-                                }
-                                #[cfg(not(feature = "slim"))]
-                                {
-                                    let q_ref: &mut u8 = match self.output_format {
-                                        ExportFormat::Gif => &mut self.quality_gif,
-                                        ExportFormat::Webp => &mut self.quality_webp,
-                                        ExportFormat::Mp4 => &mut self.quality_mp4,
-                                    };
-                                    let mut q = i32::from(*q_ref);
-                                    ui.label(
-                                        egui::RichText::new("Quality").small().color(text_main),
-                                    );
-                                    if ui
-                                        .add_sized(
-                                            [120.0, 18.0],
-                                            egui::Slider::new(&mut q, 1..=100)
-                                                .integer()
-                                                .suffix("%")
-                                                .text_color(text_main)
-                                                .handle_shape(egui::style::HandleShape::Rect {
-                                                    aspect_ratio: 0.45,
-                                                })
-                                                .trailing_fill(true),
-                                        )
-                                        .changed()
-                                    {
-                                        *q_ref = q.clamp(1, 100) as u8;
-                                    }
-                                    ui.separator();
-                                    ui.label(
-                                        egui::RichText::new("Format").small().color(text_main),
-                                    );
-                                    ui.radio_value(
-                                        &mut self.output_format,
-                                        ExportFormat::Gif,
-                                        "GIF",
-                                    );
-                                    ui.radio_value(
-                                        &mut self.output_format,
-                                        ExportFormat::Mp4,
-                                        "MP4",
-                                    );
-                                    ui.radio_value(
-                                        &mut self.output_format,
-                                        ExportFormat::Webp,
-                                        "WebP",
-                                    );
+                                    self.quality_gif = q.clamp(1, 100) as u8;
                                 }
                             });
                         });
@@ -499,26 +293,8 @@ impl eframe::App for GifcapApp {
                                         }
                                     }
                                 }
-                                if ui
-                                    .add(theme::secondary_button("Fullscreen Record"))
-                                    .clicked()
-                                {
-                                    match self.start_fullscreen_recording(ctx, frame) {
-                                        Ok(()) => self.status.clear(),
-                                        Err(e) => {
-                                            self.log_e(&format!("Fullscreen record failed: {e}"));
-                                            self.status = e;
-                                        }
-                                    }
-                                }
                                 if ui.add(theme::secondary_button("Screen")).clicked() {
                                     self.save_screenshot(ctx, frame);
-                                }
-                                if ui
-                                    .add(theme::secondary_button("Fullscreen Screen"))
-                                    .clicked()
-                                {
-                                    self.save_fullscreen_screenshot(ctx);
                                 }
                             } else {
                                 if ui.add(theme::primary_button("Save")).clicked() {
@@ -547,12 +323,6 @@ impl eframe::App for GifcapApp {
                                 if ui.add(theme::secondary_button("Screen")).clicked() {
                                     self.save_screenshot(ctx, frame);
                                 }
-                                if ui
-                                    .add(theme::secondary_button("Fullscreen Screen"))
-                                    .clicked()
-                                {
-                                    self.save_fullscreen_screenshot(ctx);
-                                }
                             }
                         });
 
@@ -563,7 +333,11 @@ impl eframe::App for GifcapApp {
                                     let gh = ui
                                         .add(
                                             egui::Button::new(
-                                                egui::RichText::new("GitHub v1.1").small(),
+                                                egui::RichText::new(format!(
+                                                    "GitHub v{}",
+                                                    env!("CARGO_PKG_VERSION")
+                                                ))
+                                                .small(),
                                             )
                                             .small(),
                                         )
@@ -575,6 +349,16 @@ impl eframe::App for GifcapApp {
                                             url: GITHUB_REPO_URL.to_string(),
                                             new_tab: true,
                                         });
+                                    }
+                                    if ui
+                                        .add(
+                                            egui::Button::new(egui::RichText::new("About").small())
+                                                .small(),
+                                        )
+                                        .on_hover_text("License")
+                                        .clicked()
+                                    {
+                                        self.show_about = true;
                                     }
 
                                     let move_btn = ui
@@ -663,20 +447,34 @@ impl eframe::App for GifcapApp {
                 });
             });
 
-        if self.export_busy {
-            let busy_label = {
-                #[cfg(feature = "slim")]
-                {
-                    "Saving file…"
-                }
-                #[cfg(not(feature = "slim"))]
-                {
-                    match self.export_busy_format {
-                        Some(ExportFormat::Webp) => "Converting to WebP…",
-                        _ => "Saving file…",
+        if self.show_about {
+            egui::Window::new("About gifcap")
+                .collapsible(false)
+                .resizable(false)
+                .open(&mut self.show_about)
+                .show(ctx, |ui| {
+                    ui.label(format!("gifcap {}", env!("CARGO_PKG_VERSION")));
+                    ui.label("Records a GIF of the area you frame next to the toolbar.");
+                    ui.add_space(6.0);
+                    ui.label("The source is MIT. This program includes FFmpeg under the GNU LGPL v2.1 or later.");
+                    if ui.link("FFmpeg license").clicked() {
+                        ctx.open_url(egui::OpenUrl {
+                            url: "https://ffmpeg.org/legal.html".into(),
+                            new_tab: true,
+                        });
                     }
-                }
-            };
+                    if ui.link("gifcap source").clicked() {
+                        ctx.open_url(egui::OpenUrl {
+                            url: GITHUB_REPO_URL.into(),
+                            new_tab: true,
+                        });
+                    }
+                    ui.add_space(4.0);
+                    ui.label("COPYING, NOTICE, and THIRD-PARTY.txt ship next to the program.");
+                });
+        }
+
+        if self.export_busy {
             egui::CentralPanel::default()
                 .frame(
                     egui::Frame::default()
@@ -690,16 +488,7 @@ impl eframe::App for GifcapApp {
                         ui.add_space(ui.available_height() * 0.28);
                         ui.spinner();
                         ui.add_space(10.0);
-                        ui.label(egui::RichText::new(busy_label).color(text_main));
-                        #[cfg(not(feature = "slim"))]
-                        if self.export_busy_format == Some(ExportFormat::Webp) {
-                            ui.add_space(16.0);
-                            if ui.add(theme::secondary_button("Cancel")).clicked() {
-                                if let Some(c) = &self.export_cancel {
-                                    c.store(true, Ordering::Relaxed);
-                                }
-                            }
-                        }
+                        ui.label(egui::RichText::new("Saving file…").color(text_main));
                     });
                 });
             ctx.request_repaint_after(Duration::from_millis(32));
@@ -750,7 +539,7 @@ impl eframe::App for GifcapApp {
             let _ = gifcap_windows::apply_toolbar_window_region(raw, th, self.panel_at_top);
         }
 
-        if self.recording && !self.paused && !self.export_busy && !self.fullscreen_recording {
+        if self.recording && !self.paused && !self.export_busy {
             self.tick_capture(ctx, frame);
             ctx.request_repaint_after(Duration::from_millis(1));
         }
@@ -789,20 +578,7 @@ impl GifcapApp {
             ));
         }
         let dir = instance_session_dir(&self.session_id.to_string()).map_err(|e| e.to_string())?;
-        let enc_q = {
-            #[cfg(feature = "slim")]
-            {
-                self.quality_gif
-            }
-            #[cfg(not(feature = "slim"))]
-            {
-                match self.output_format {
-                    ExportFormat::Gif => self.quality_gif,
-                    ExportFormat::Webp => self.quality_webp,
-                    ExportFormat::Mp4 => self.quality_mp4,
-                }
-            }
-        };
+        let enc_q = self.quality_gif;
         let session = match Session::create_in_dir(
             dir,
             cap_w,
@@ -820,7 +596,6 @@ impl GifcapApp {
         self.session = Some(session);
         self.recording = true;
         self.paused = false;
-        self.set_tray_stop_enabled(true);
         self.last_tick = Instant::now() - Duration::from_secs(60);
         self.log_a(&format!(
             "Record started {}×{} px (viewport {}×{}, even for encoder) @ {:.1} fps, toolbar_h_px={th}, export format {:?}, quality={}%",
@@ -831,114 +606,6 @@ impl GifcapApp {
             self.fps,
             self.output_format,
             enc_q
-        ));
-        Ok(())
-    }
-
-    fn start_fullscreen_recording(
-        &mut self,
-        ctx: &egui::Context,
-        _frame: &eframe::Frame,
-    ) -> Result<(), String> {
-        if self.recording {
-            return Err("Recording is already in progress".into());
-        }
-        let rect = gifcap_windows::primary_monitor_rect().map_err(|e| e.to_string())?;
-        let cap_w = rect.width & !1;
-        let cap_h = rect.height & !1;
-        if cap_w < MIN_CAPTURE_PX || cap_h < MIN_CAPTURE_PX {
-            return Err(format!(
-                "capture area must be at least {MIN_CAPTURE_PX}x{MIN_CAPTURE_PX} px"
-            ));
-        }
-
-        let dir = instance_session_dir(&self.session_id.to_string()).map_err(|e| e.to_string())?;
-        let enc_q = {
-            #[cfg(feature = "slim")]
-            {
-                self.quality_gif
-            }
-            #[cfg(not(feature = "slim"))]
-            {
-                match self.output_format {
-                    ExportFormat::Gif => self.quality_gif,
-                    ExportFormat::Webp => self.quality_webp,
-                    ExportFormat::Mp4 => self.quality_mp4,
-                }
-            }
-        };
-
-        let fps = self.fps.clamp(4.0, 60.0);
-        let output_format = self.output_format;
-        let log_id = self.session_id.to_string();
-        let capture_rect = PhysicalRect {
-            x: rect.x,
-            y: rect.y,
-            width: cap_w,
-            height: cap_h,
-        };
-        let (cmd_tx, cmd_rx) = mpsc::channel::<FullscreenWorkerCommand>();
-        let (event_tx, event_rx) = mpsc::channel::<FullscreenWorkerEvent>();
-        std::thread::spawn(move || {
-            let run = || -> Result<(), String> {
-                let mut session =
-                    Session::create_in_dir(dir, cap_w, cap_h, f64::from(fps), output_format, enc_q)
-                        .map_err(|e| e.to_string())?;
-                let frame_interval = Duration::from_secs_f64(1.0 / f64::from(fps));
-                loop {
-                    let loop_start = Instant::now();
-                    match cmd_rx.try_recv() {
-                        Ok(FullscreenWorkerCommand::StopSave) => {
-                            let snapshot = session.finish().map_err(|e| e.to_string())?;
-                            let result = export_session(&snapshot, None).map_err(|e| e.to_string());
-                            if result.is_ok() {
-                                let _ = std::fs::remove_dir_all(&snapshot.dir);
-                            }
-                            match result {
-                                Ok(path) => {
-                                    let _ = event_tx.send(FullscreenWorkerEvent::Saved(path));
-                                }
-                                Err(e) => {
-                                    let _ = event_tx.send(FullscreenWorkerEvent::Failed(e));
-                                }
-                            }
-                            return Ok(());
-                        }
-                        Ok(FullscreenWorkerCommand::StopDiscard) => {
-                            let snapshot = session.finish().map_err(|e| e.to_string())?;
-                            let _ = std::fs::remove_dir_all(&snapshot.dir);
-                            let _ = event_tx.send(FullscreenWorkerEvent::Discarded);
-                            return Ok(());
-                        }
-                        Err(TryRecvError::Disconnected) => return Ok(()),
-                        Err(TryRecvError::Empty) => {}
-                    }
-                    let pixels =
-                        gifcap_windows::capture_bgra(capture_rect).map_err(|e| e.to_string())?;
-                    session.push_frame(&pixels).map_err(|e| e.to_string())?;
-                    let elapsed = loop_start.elapsed();
-                    if elapsed < frame_interval {
-                        std::thread::sleep(frame_interval - elapsed);
-                    }
-                }
-            };
-            if let Err(e) = run() {
-                log_error(Some(&log_id), &format!("fullscreen worker failed: {e}"));
-                let _ = event_tx.send(FullscreenWorkerEvent::Failed(e));
-            }
-        });
-
-        self.session = None;
-        self.recording = true;
-        self.paused = false;
-        self.fullscreen_recording = true;
-        self.set_tray_stop_enabled(true);
-        self.fullscreen_worker = Some(FullscreenRecorderHandle { cmd_tx, event_rx });
-        self.recording_toolbar_h = None;
-        self.ui_runtime.hide_for_fullscreen_recording(ctx);
-        self.log_a(&format!(
-            "Fullscreen record started {}x{} px @ {:.1} fps, format {:?}, quality={}%",
-            cap_w, cap_h, fps, self.output_format, enc_q
         ));
         Ok(())
     }
@@ -1005,58 +672,6 @@ impl GifcapApp {
         ctx.request_repaint();
     }
 
-    fn save_fullscreen_screenshot(&mut self, ctx: &egui::Context) {
-        let pr_raw = match gifcap_windows::primary_monitor_rect() {
-            Ok(p) => p,
-            Err(e) => {
-                self.status = e.to_string();
-                return;
-            }
-        };
-        let cap_w = pr_raw.width & !1;
-        let cap_h = pr_raw.height & !1;
-        if cap_w < MIN_CAPTURE_PX || cap_h < MIN_CAPTURE_PX {
-            self.status =
-                format!("capture area must be at least {MIN_CAPTURE_PX}×{MIN_CAPTURE_PX} px");
-            return;
-        }
-        let pixels = match gifcap_windows::capture_bgra(PhysicalRect {
-            x: pr_raw.x,
-            y: pr_raw.y,
-            width: cap_w,
-            height: cap_h,
-        }) {
-            Ok(p) => p,
-            Err(e) => {
-                self.log_e(&format!("Fullscreen screenshot capture failed: {e}"));
-                self.status = format!("Fullscreen screenshot failed: {e}");
-                return;
-            }
-        };
-        let out_dir = match output_dir() {
-            Ok(d) => d,
-            Err(e) => {
-                self.status = e.to_string();
-                return;
-            }
-        };
-        if let Err(e) = ensure_dir(&out_dir) {
-            self.status = format!("output dir: {e}");
-            return;
-        }
-        let path = out_dir.join(output_filename("png"));
-        if let Err(e) = save_bgra_as_png(&path, cap_w, cap_h, &pixels) {
-            self.log_e(&format!("Fullscreen screenshot save failed: {e}"));
-            self.status = e;
-            return;
-        }
-        self.log_a(&format!("Fullscreen screen saved {}", path.display()));
-        self.copy_feedback_until = None;
-        self.status = format!("{}{}", STATUS_SAVED_PREFIX, path.display());
-        ctx.request_repaint();
-    }
-
-    /// On app shutdown: wait for export worker if needed, stop recording, remove instance session dir.
     fn cleanup_on_exit(&mut self) {
         self.log_a("application exiting; cleaning session workspace");
 
@@ -1066,13 +681,6 @@ impl GifcapApp {
         }
         self.export_busy = false;
         self.export_busy_format = None;
-        self.export_cancel = None;
-        self.fullscreen_recording = false;
-        self.set_tray_stop_enabled(false);
-        if let Some(worker) = self.fullscreen_worker.take() {
-            let _ = worker.cmd_tx.send(FullscreenWorkerCommand::StopDiscard);
-        }
-        self.ui_runtime.prev_window_pos = None;
 
         if let Some(sess) = self.session.take() {
             let dir = sess.dir.clone();
@@ -1115,12 +723,6 @@ impl GifcapApp {
         }
         self.recording = false;
         self.paused = false;
-        self.fullscreen_recording = false;
-        self.set_tray_stop_enabled(false);
-        if let Some(worker) = self.fullscreen_worker.take() {
-            let _ = worker.cmd_tx.send(FullscreenWorkerCommand::StopDiscard);
-        }
-        self.ui_runtime.show(ctx);
         self.recording_toolbar_h = None;
         self.status.clear();
         ctx.request_repaint();
@@ -1130,18 +732,6 @@ impl GifcapApp {
         let frames = self.session.as_ref().map(|s| s.frame_count()).unwrap_or(0);
         self.recording = false;
         self.paused = false;
-        self.fullscreen_recording = false;
-        self.set_tray_stop_enabled(false);
-        if let Some(worker) = self.fullscreen_worker.take() {
-            let _ = worker.cmd_tx.send(FullscreenWorkerCommand::StopSave);
-            self.export_busy = true;
-            self.export_busy_format = Some(self.output_format);
-            self.status.clear();
-            self.ui_runtime.show(ctx);
-            ctx.request_repaint_after(Duration::from_millis(50));
-            return;
-        }
-        self.ui_runtime.show(ctx);
         self.recording_toolbar_h = None;
         let Some(sess) = self.session.take() else {
             self.log_w("Save with no active session");
@@ -1158,20 +748,6 @@ impl GifcapApp {
             "Save pressed, format {:?}, frames={frames}",
             snapshot.format
         ));
-        let cancel_flag: Option<Arc<AtomicBool>> = {
-            #[cfg(feature = "slim")]
-            {
-                None
-            }
-            #[cfg(not(feature = "slim"))]
-            {
-                match snapshot.format {
-                    ExportFormat::Webp => Some(Arc::new(AtomicBool::new(false))),
-                    _ => None,
-                }
-            }
-        };
-        self.export_cancel = cancel_flag.as_ref().map(Arc::clone);
         let (tx, rx) = mpsc::channel();
         self.export_rx = Some(rx);
         self.export_busy = true;
@@ -1179,9 +755,8 @@ impl GifcapApp {
         self.status.clear();
         let export_log_id = snapshot.log_instance_id.clone();
         std::thread::spawn(move || {
-            let cancel = cancel_flag.as_deref();
             let lid = Some(export_log_id.as_str());
-            let result = export_session(&snapshot, cancel).map_err(|e| e.to_string());
+            let result = export_session(&snapshot, None).map_err(|e| e.to_string());
             match &result {
                 Ok(path) => {
                     log_info(
@@ -1261,78 +836,6 @@ impl GifcapApp {
                 self.log_e(&msg);
                 self.status = msg;
             }
-        }
-    }
-
-    fn stop_fullscreen_and_save(&mut self) {
-        if let Some(worker) = &self.fullscreen_worker {
-            let _ = worker.cmd_tx.send(FullscreenWorkerCommand::StopSave);
-            self.export_busy = true;
-            self.export_busy_format = Some(self.output_format);
-        }
-    }
-
-    fn poll_fullscreen_worker(&mut self, ctx: &egui::Context) {
-        let mut clear_worker = false;
-        if let Some(worker) = &self.fullscreen_worker {
-            match worker.event_rx.try_recv() {
-                Ok(FullscreenWorkerEvent::Saved(path)) => {
-                    self.log_i(&format!(
-                        "UI: fullscreen export saved to {}",
-                        path.display()
-                    ));
-                    self.status = format!("{}{}", STATUS_SAVED_PREFIX, path.display());
-                    self.fullscreen_recording = false;
-                    self.recording = false;
-                    self.paused = false;
-                    self.export_busy = false;
-                    self.export_busy_format = None;
-                    self.set_tray_stop_enabled(false);
-                    self.ui_runtime.show(ctx);
-                    clear_worker = true;
-                }
-                Ok(FullscreenWorkerEvent::Discarded) => {
-                    self.log_i("UI: fullscreen recording discarded");
-                    self.fullscreen_recording = false;
-                    self.recording = false;
-                    self.paused = false;
-                    self.export_busy = false;
-                    self.export_busy_format = None;
-                    self.set_tray_stop_enabled(false);
-                    self.ui_runtime.show(ctx);
-                    clear_worker = true;
-                }
-                Ok(FullscreenWorkerEvent::Failed(e)) => {
-                    self.log_e(&format!("UI: fullscreen worker failed: {e}"));
-                    self.status = e;
-                    self.fullscreen_recording = false;
-                    self.recording = false;
-                    self.paused = false;
-                    self.export_busy = false;
-                    self.export_busy_format = None;
-                    self.set_tray_stop_enabled(false);
-                    self.ui_runtime.show(ctx);
-                    clear_worker = true;
-                }
-                Err(TryRecvError::Disconnected) => {
-                    self.fullscreen_recording = false;
-                    self.recording = false;
-                    self.paused = false;
-                    self.export_busy = false;
-                    self.export_busy_format = None;
-                    self.set_tray_stop_enabled(false);
-                    self.ui_runtime.show(ctx);
-                    clear_worker = true;
-                }
-                Err(TryRecvError::Empty) => {
-                    if self.fullscreen_recording {
-                        ctx.request_repaint_after(Duration::from_millis(50));
-                    }
-                }
-            }
-        }
-        if clear_worker {
-            self.fullscreen_worker = None;
         }
     }
 

@@ -1,6 +1,6 @@
-//! Recording muxed incrementally with FFmpeg (GIF; full builds also MP4 / WebP via MP4 + transcode).
+//! Recording muxed incrementally with FFmpeg to GIF.
 //! Capture feeds BGRA frames into a writer thread; the container grows on disk with bounded memory.
-//! Feature **`slim`**: GIF only; screenshots stay PNG via the `image` crate in the UI crate.
+//! Screenshots stay PNG via the `image` crate in the UI crate.
 
 mod error;
 mod export;

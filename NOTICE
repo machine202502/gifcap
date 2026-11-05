@@ -1,25 +1,10 @@
-gifcap
-Copyright (c) 2025 The gifcap contributors
+gifcap includes FFmpeg.
 
-The gifcap source code in this repository is licensed under the MIT License.
-See the LICENSE file for the full text.
+FFmpeg (https://ffmpeg.org) is linked statically as libavcodec, libavformat, libavutil, and libswscale. This build does not enable GPL-only FFmpeg components, so those libraries are used under the GNU Lesser General Public License, version 2.1 or later. The text is in COPYING. The license page is https://ffmpeg.org/legal.html.
 
----
+The FFmpeg version built into a given executable is listed in THIRD-PARTY.txt next to that executable. Source for this FFmpeg port is the tag named in that file.
 
-This program incorporates FFmpeg (https://ffmpeg.org), including statically
-linked libraries such as libavcodec, libavformat, libavutil, and libswscale.
+The executable also contains Rust crates. Their names, versions, authors, and license texts are in THIRD-PARTY.txt.
 
-FFmpeg is licensed primarily under the GNU Lesser General Public License v2.1
-or later (LGPL-2.1-or-later). Your build configuration may enable additional
-components under other licenses; see https://ffmpeg.org/legal.html
-
-FFmpeg source code corresponding to the version used in this project’s vcpkg
-ports is available from:
-  https://github.com/FFmpeg/FFmpeg
-(use tag n8.0.1 to match ffmpeg 8.0.1 in vcpkg-overlays/*/ffmpeg/vcpkg.json)
-
-Full text of LGPL-2.1:
-  https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
-
-For redistribution obligations (especially static linking), see THIRD_PARTY.md
-in this repository.
+Source code for gifcap: https://github.com/machine202502/gifcap
+The source in this repository is under the MIT license. See LICENSE.

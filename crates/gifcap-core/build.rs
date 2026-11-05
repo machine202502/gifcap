@@ -1,5 +1,5 @@
 //! `ffmpeg-sys-next` adds Windows system DLLs when using vcpkg; with `FFMPEG_DIR` it does not.
-//! Full FFmpeg links transitive static deps for libwebp; slim omits them.
+//! The GIF build links zlib when that static library is next to FFmpeg.
 
 use std::path::PathBuf;
 
@@ -36,15 +36,5 @@ fn main() {
         }
     }
 
-    let slim = std::env::vars()
-        .any(|(k, v)| k == "CARGO_FEATURE_SLIM" && v == "1");
-    if slim {
-        link_first_present(&lib_dir, &["zlib"]);
-        return;
-    }
-
     link_first_present(&lib_dir, &["zlib"]);
-    link_first_present(&lib_dir, &["sharpyuv", "libsharpyuv"]);
-    link_first_present(&lib_dir, &["webp", "libwebp"]);
-    link_first_present(&lib_dir, &["webpmux", "libwebpmux"]);
 }

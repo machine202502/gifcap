@@ -18,6 +18,13 @@ fn main() {
 
         let mut res = winres::WindowsResource::new();
         res.set_icon(ico_path.to_str().expect("utf8 path"));
+        res.set("ProductName", "gifcap");
+        res.set("FileDescription", "Record a screen area to GIF");
+        res.set(
+            "Comments",
+            "https://github.com/machine202502/gifcap — source under the MIT License. Includes FFmpeg under the GNU LGPL v2.1 or later (https://ffmpeg.org/legal.html). Other notices are in THIRD-PARTY.txt.",
+        );
+        res.set("OriginalFilename", "gifcap.exe");
         res.compile().expect("winres compile");
 
         // Static FFmpeg (vcpkg) links avdevice (DirectShow) and avcodec (Media Foundation) but
