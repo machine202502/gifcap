@@ -46,8 +46,9 @@ jobs:
           url=$(gh release view --repo "$GITHUB_REPOSITORY" --json assets \
             --jq '.assets[] | select(.name | test("windows-x64\\.zip$")) | .browserDownloadUrl' | head -1)
           if [ -z "$url" ]; then
-            echo "Missing zip asset in $tag" >&2
-            exit 1
+            echo "Latest release has no portable zip yet — deploying with placeholders."
+            echo "version=" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o zip "$url"
           {
