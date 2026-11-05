@@ -1,6 +1,6 @@
 # gifcap
 
-Windows program that records a GIF of the area you frame next to the toolbar, and can save that area as a PNG screenshot.
+Windows program that records a GIF of the area you frame next to the toolbar.
 
 The source in this repository is under the MIT license. A release build statically links FFmpeg under the GNU LGPL v2.1 or later, so the distributed executable is covered by the LGPL. `COPYING` is that license. `NOTICE` names the obligation. The generated `THIRD-PARTY.txt` lists the library versions and the Rust crates, and it travels with the zip. Source and downloads: https://github.com/machine202502/gifcap
 

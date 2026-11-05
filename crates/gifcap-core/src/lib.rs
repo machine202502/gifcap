@@ -1,6 +1,5 @@
 //! Recording muxed incrementally with FFmpeg to GIF.
 //! Capture feeds BGRA frames into a writer thread; the container grows on disk with bounded memory.
-//! Screenshots stay PNG via the `image` crate in the UI crate.
 
 mod error;
 mod export;

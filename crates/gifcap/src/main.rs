@@ -4,7 +4,7 @@
 mod icon_bitmap;
 mod theme;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
@@ -16,14 +16,12 @@ use eframe::egui;
 #[cfg(windows)]
 use gifcap_core::{
     ensure_dir, export_session, instance_session_dir, log_action, log_error, log_info, log_warn,
-    output_dir, output_filename, ExportFormat, Session,
+    ExportFormat, Session,
 };
 #[cfg(windows)]
 use gifcap_windows::PhysicalRect;
 #[cfg(windows)]
-use image::RgbaImage;
-#[cfg(windows)]
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use raw_window_handle::HasWindowHandle;
 #[cfg(windows)]
 use uuid::Uuid;
 
@@ -293,9 +291,6 @@ impl eframe::App for GifcapApp {
                                         }
                                     }
                                 }
-                                if ui.add(theme::secondary_button("Screen")).clicked() {
-                                    self.save_screenshot(ctx, frame);
-                                }
                             } else {
                                 if ui.add(theme::primary_button("Save")).clicked() {
                                     self.stop_and_save_async(ctx);
@@ -319,10 +314,6 @@ impl eframe::App for GifcapApp {
                                         .small()
                                         .color(text_main),
                                 );
-                                ui.separator();
-                                if ui.add(theme::secondary_button("Screen")).clicked() {
-                                    self.save_screenshot(ctx, frame);
-                                }
                             }
                         });
 
@@ -610,68 +601,6 @@ impl GifcapApp {
         Ok(())
     }
 
-    fn save_screenshot(&mut self, ctx: &egui::Context, frame: &eframe::Frame) {
-        let Ok(h) = frame.window_handle() else {
-            self.status = "window handle unavailable".into();
-            return;
-        };
-        let raw = h.as_raw();
-        if self.toolbar_h_px <= 0 {
-            self.status = "toolbar layout not ready".into();
-            return;
-        }
-        let th = self.recording_toolbar_h.unwrap_or(self.toolbar_h_px);
-        let pr_raw = match gifcap_windows::physical_viewport_rect(raw, th, self.panel_at_top) {
-            Ok(p) => p,
-            Err(e) => {
-                self.status = e.to_string();
-                return;
-            }
-        };
-        let cap_w = pr_raw.width & !1;
-        let cap_h = pr_raw.height & !1;
-        if cap_w < MIN_CAPTURE_PX || cap_h < MIN_CAPTURE_PX {
-            self.status =
-                format!("capture area must be at least {MIN_CAPTURE_PX}×{MIN_CAPTURE_PX} px");
-            return;
-        }
-        let pr = PhysicalRect {
-            x: pr_raw.x,
-            y: pr_raw.y,
-            width: cap_w,
-            height: cap_h,
-        };
-        let pixels = match gifcap_windows::capture_bgra(pr) {
-            Ok(p) => p,
-            Err(e) => {
-                self.log_e(&format!("Screenshot capture failed: {e}"));
-                self.status = format!("Screenshot failed: {e}");
-                return;
-            }
-        };
-        let out_dir = match output_dir() {
-            Ok(d) => d,
-            Err(e) => {
-                self.status = e.to_string();
-                return;
-            }
-        };
-        if let Err(e) = ensure_dir(&out_dir) {
-            self.status = format!("output dir: {e}");
-            return;
-        }
-        let path = out_dir.join(output_filename("png"));
-        if let Err(e) = save_bgra_as_png(&path, cap_w, cap_h, &pixels) {
-            self.log_e(&format!("Screenshot save failed: {e}"));
-            self.status = e;
-            return;
-        }
-        self.log_a(&format!("Screen saved {}", path.display()));
-        self.copy_feedback_until = None;
-        self.status = format!("{}{}", STATUS_SAVED_PREFIX, path.display());
-        ctx.request_repaint();
-    }
-
     fn cleanup_on_exit(&mut self) {
         self.log_a("application exiting; cleaning session workspace");
 
@@ -850,26 +779,3 @@ impl GifcapApp {
     }
 }
 
-#[cfg(windows)]
-fn save_bgra_as_png(path: &Path, width: u32, height: u32, bgra: &[u8]) -> Result<(), String> {
-    let expected = (width as usize)
-        .saturating_mul(height as usize)
-        .saturating_mul(4);
-    if bgra.len() != expected {
-        return Err(format!(
-            "BGRA size mismatch: got {} expected {}",
-            bgra.len(),
-            expected
-        ));
-    }
-    let mut rgba = Vec::with_capacity(expected);
-    for px in bgra.chunks_exact(4) {
-        rgba.push(px[2]);
-        rgba.push(px[1]);
-        rgba.push(px[0]);
-        rgba.push(px[3]);
-    }
-    let img = RgbaImage::from_raw(width, height, rgba).ok_or_else(|| "PNG buffer".to_string())?;
-    img.save(path).map_err(|e| e.to_string())?;
-    Ok(())
-}

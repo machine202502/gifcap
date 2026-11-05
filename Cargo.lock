@@ -786,13 +786,12 @@ dependencies = [
 
 [[package]]
 name = "gifcap"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "eframe",
  "gifcap-core",
  "gifcap-windows",
  "ico",
- "image",
  "raw-window-handle",
  "uuid",
  "winres",
@@ -800,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "gifcap-core"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "chrono",
  "ffmpeg-next",
@@ -808,7 +807,7 @@ dependencies = [
 
 [[package]]
 name = "gifcap-windows"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "raw-window-handle",
  "windows",
