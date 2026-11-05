@@ -4,6 +4,9 @@ mod icon_bitmap;
 fn main() {
     #[cfg(windows)]
     {
+        let manifest = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("../../assets/app.manifest");
+        println!("cargo:rerun-if-changed={}", manifest.display());
         let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
         let ico_path = out_dir.join("app.ico");
         let mut dir = ico::IconDir::new(ico::ResourceType::Icon);
@@ -17,6 +20,7 @@ fn main() {
         dir.write(&mut f).expect("write app.ico");
 
         let mut res = winres::WindowsResource::new();
+        res.set_manifest_file(manifest.to_str().expect("utf8 manifest path"));
         res.set_icon(ico_path.to_str().expect("utf8 path"));
         res.set("ProductName", "gifcap");
         res.set("FileDescription", "Record a screen area to GIF");

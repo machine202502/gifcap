@@ -43,18 +43,31 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           mkdir -p /tmp/gifcap-release
           cd /tmp/gifcap-release
-          url=$(gh release view --repo "$GITHUB_REPOSITORY" --json assets \
+          zip_url=$(gh release view --repo "$GITHUB_REPOSITORY" --json assets \
             --jq '.assets[] | select(.name | test("windows-x64\\.zip$")) | .browserDownloadUrl' | head -1)
-          if [ -z "$url" ]; then
+          setup_url=$(gh release view --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | select(.name | test("-setup\\.exe$")) | .browserDownloadUrl' | head -1)
+          if [ -z "$zip_url" ]; then
             echo "Latest release has no portable zip yet — deploying with placeholders."
             echo "version=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o zip "$url"
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o zip "$zip_url"
           {
             echo "zip_hash=$(sha256sum zip | cut -d' ' -f1)"
             echo "zip_size=$(awk -v b="$(stat -c %s zip)" 'BEGIN{printf "%.1f", b/1048576}')"
           } >> "$GITHUB_OUTPUT"
+          if [ -n "$setup_url" ]; then
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o setup "$setup_url"
+            {
+              echo "setup_hash=$(sha256sum setup | cut -d' ' -f1)"
+              echo "setup_size=$(awk -v b="$(stat -c %s setup)" 'BEGIN{printf "%.1f", b/1048576}')"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "setup_hash=-"
+            echo "setup_size=-"
+            echo "Latest release has no installer yet."
+          fi
 
       - name: Fill release data into the site
         if: steps.release.outputs.version != ''
@@ -66,6 +79,8 @@ jobs:
               -e 's/@@VERSION@@/${{ steps.release.outputs.version }}/g' \
               -e 's/@@HASH_ZIP@@/${{ steps.release.outputs.zip_hash }}/g' \
               -e 's/@@SIZE_ZIP@@/${{ steps.release.outputs.zip_size }}/g' \
+              -e 's/@@HASH_SETUP@@/${{ steps.release.outputs.setup_hash }}/g' \
+              -e 's/@@SIZE_SETUP@@/${{ steps.release.outputs.setup_size }}/g' \
               "$page"
           done
 

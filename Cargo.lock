@@ -794,6 +794,7 @@ dependencies = [
  "ico",
  "raw-window-handle",
  "uuid",
+ "windows",
  "winres",
 ]
 

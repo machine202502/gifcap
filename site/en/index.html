@@ -14,6 +14,9 @@
   <meta property="og:description" content="Frame a piece of the screen and keep a GIF. Windows.">
   <meta property="og:url" content="https://machine202502.github.io/gifcap/en/">
   <meta property="og:image" content="https://machine202502.github.io/gifcap/assets/screenshot.webp">
+  <link rel="icon" href="../favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="../assets/icon.png">
+  <link rel="apple-touch-icon" href="../assets/icon.png">
   <link rel="stylesheet" href="../styles.css">
   <script>
     (function () {
@@ -37,7 +40,7 @@
 </head>
 <body>
   <header class="nav">
-    <a class="brand" href="#top">gifcap</a>
+    <a class="brand" href="#top"><img src="../assets/icon.png" alt="" width="32" height="32">gifcap</a>
     <nav class="nav-links">
       <a href="#how">How it works</a>
       <a href="#download">Download</a>
@@ -52,7 +55,7 @@
       <div>
         <h1>A GIF of the area you leave open.</h1>
         <p class="lead">The toolbar stays on screen. Next to it is a clear window. Only that piece is recorded, straight to a GIF.</p>
-        <a class="btn" data-dl-zip href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64.zip">Download for Windows</a>
+        <a class="btn" data-dl-setup href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64-setup.exe">Download for Windows</a>
         <p class="hint">Version <span data-version>@@VERSION@@</span> · source MIT · the app with FFmpeg under the LGPL</p>
       </div>
       <figure class="shot">
@@ -72,10 +75,15 @@
     <section class="section" id="download">
       <h2>Download</h2>
       <div class="dl">
+        <a class="btn" data-dl-setup href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64-setup.exe">gifcap-<span data-version>@@VERSION@@</span>-windows-x64-setup.exe</a>
+        <p>Installer. Size: <span data-size-setup>@@SIZE_SETUP@@ MB</span></p>
+        <p>SHA-256: <span class="hash" data-hash-setup>@@HASH_SETUP@@</span></p>
+      </div>
+      <div class="dl">
         <a class="btn" data-dl-zip href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64.zip">gifcap-<span data-version>@@VERSION@@</span>-windows-x64.zip</a>
-        <p>Size: <span data-size-zip>@@SIZE_ZIP@@ MB</span></p>
+        <p>Portable. Size: <span data-size-zip>@@SIZE_ZIP@@ MB</span></p>
         <p>SHA-256: <span class="hash" data-hash-zip>@@HASH_ZIP@@</span></p>
-        <p class="license-note">The source is <a href="https://github.com/machine202502/gifcap/blob/main/LICENSE">MIT</a>. The program statically includes FFmpeg, so the program file is under the <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">GNU LGPL 2.1 or later</a>. The zip contains COPYING, NOTICE, and THIRD-PARTY.txt.</p>
+        <p class="license-note">The source is <a href="https://github.com/machine202502/gifcap/blob/main/LICENSE">MIT</a>. The program statically includes FFmpeg, so the program file is under the <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">GNU LGPL 2.1 or later</a>. The installer and the zip contain COPYING, NOTICE, and THIRD-PARTY.txt.</p>
       </div>
     </section>
   </main>

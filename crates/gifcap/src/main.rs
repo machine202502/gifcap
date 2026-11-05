@@ -21,9 +21,23 @@ use gifcap_core::{
 #[cfg(windows)]
 use gifcap_windows::PhysicalRect;
 #[cfg(windows)]
-use raw_window_handle::HasWindowHandle;
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 #[cfg(windows)]
 use uuid::Uuid;
+#[cfg(windows)]
+use windows::core::{w, PCWSTR};
+#[cfg(windows)]
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+#[cfg(windows)]
+use windows::Win32::UI::Controls::{
+    TaskDialogIndirect, TASKDIALOGCONFIG, TASKDIALOG_NOTIFICATIONS, TDCBF_OK_BUTTON,
+    TDF_ALLOW_DIALOG_CANCELLATION, TDF_ENABLE_HYPERLINKS, TDF_POSITION_RELATIVE_TO_WINDOW,
+    TDF_SIZE_TO_CONTENT, TDN_HYPERLINK_CLICKED,
+};
+#[cfg(windows)]
+use windows::Win32::UI::Shell::ShellExecuteW;
+#[cfg(windows)]
+use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
 #[cfg(not(windows))]
 fn main() {
@@ -44,6 +58,74 @@ const MIN_INNER_HEIGHT_PT: f32 = 140.0;
 const STATUS_SAVED_PREFIX: &str = "Saved ";
 
 const GITHUB_REPO_URL: &str = "https://github.com/machine202502/gifcap";
+
+#[cfg(windows)]
+fn wide(value: &str) -> Vec<u16> {
+    value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(windows)]
+fn owner_hwnd(frame: &eframe::Frame) -> HWND {
+    let Ok(handle) = frame.window_handle() else {
+        return HWND::default();
+    };
+    match handle.as_raw() {
+        RawWindowHandle::Win32(window) => HWND(window.hwnd.get() as *mut std::ffi::c_void),
+        _ => HWND::default(),
+    }
+}
+
+/// The toolbar window region clips everything outside the bar, so an egui popup
+/// drawn in the capture hole never appears. A task dialog is its own window.
+#[cfg(windows)]
+fn show_about(frame: &eframe::Frame) {
+    let title = wide("gifcap");
+    let instruction = wide("gifcap");
+    let content = wide(&format!(
+        "Version {}\n\nRecords a GIF of the area you frame next to the toolbar.\n\nThe source is <a href=\"https://opensource.org/license/mit\">MIT</a>. This program includes FFmpeg under the <a href=\"https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html\">GNU LGPL v2.1 or later</a>.\n<a href=\"https://ffmpeg.org/legal.html\">FFmpeg</a>\n<a href=\"{GITHUB_REPO_URL}\">gifcap source</a>\n\nCOPYING, NOTICE, and THIRD-PARTY.txt ship next to the program.",
+        env!("CARGO_PKG_VERSION")
+    ));
+    let mut config = TASKDIALOGCONFIG {
+        cbSize: std::mem::size_of::<TASKDIALOGCONFIG>() as u32,
+        hwndParent: owner_hwnd(frame),
+        ..Default::default()
+    };
+    config.dwFlags = TDF_ENABLE_HYPERLINKS
+        | TDF_ALLOW_DIALOG_CANCELLATION
+        | TDF_POSITION_RELATIVE_TO_WINDOW
+        | TDF_SIZE_TO_CONTENT;
+    config.dwCommonButtons = TDCBF_OK_BUTTON;
+    config.pszWindowTitle = PCWSTR(title.as_ptr());
+    config.pszMainInstruction = PCWSTR(instruction.as_ptr());
+    config.pszContent = PCWSTR(content.as_ptr());
+    config.pfCallback = Some(about_link);
+    unsafe {
+        // SAFETY: The dialog strings and callback stay alive for this call, and cbSize matches the struct.
+        TaskDialogIndirect(&config, None, None, None).ok();
+    }
+}
+
+#[cfg(windows)]
+unsafe extern "system" fn about_link(
+    hwnd: HWND,
+    msg: TASKDIALOG_NOTIFICATIONS,
+    _wparam: WPARAM,
+    lparam: LPARAM,
+    _: isize,
+) -> windows::core::HRESULT {
+    if msg == TDN_HYPERLINK_CLICKED {
+        // SAFETY: The dialog passes a NUL-terminated URL it keeps alive for this callback.
+        ShellExecuteW(
+            hwnd,
+            w!("open"),
+            PCWSTR(lparam.0 as *const u16),
+            None,
+            None,
+            SW_SHOWNORMAL,
+        );
+    }
+    windows::core::HRESULT(0)
+}
 
 #[cfg(windows)]
 fn main() -> eframe::Result<()> {
@@ -171,6 +253,10 @@ impl eframe::App for GifcapApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if self.show_about {
+            self.show_about = false;
+            show_about(frame);
+        }
         self.fps = self.fps.clamp(4.0, 60.0);
         let text_main = egui::Color32::from_rgb(15, 65, 85);
 
@@ -437,33 +523,6 @@ impl eframe::App for GifcapApp {
                     });
                 });
             });
-
-        if self.show_about {
-            egui::Window::new("About gifcap")
-                .collapsible(false)
-                .resizable(false)
-                .open(&mut self.show_about)
-                .show(ctx, |ui| {
-                    ui.label(format!("gifcap {}", env!("CARGO_PKG_VERSION")));
-                    ui.label("Records a GIF of the area you frame next to the toolbar.");
-                    ui.add_space(6.0);
-                    ui.label("The source is MIT. This program includes FFmpeg under the GNU LGPL v2.1 or later.");
-                    if ui.link("FFmpeg license").clicked() {
-                        ctx.open_url(egui::OpenUrl {
-                            url: "https://ffmpeg.org/legal.html".into(),
-                            new_tab: true,
-                        });
-                    }
-                    if ui.link("gifcap source").clicked() {
-                        ctx.open_url(egui::OpenUrl {
-                            url: GITHUB_REPO_URL.into(),
-                            new_tab: true,
-                        });
-                    }
-                    ui.add_space(4.0);
-                    ui.label("COPYING, NOTICE, and THIRD-PARTY.txt ship next to the program.");
-                });
-        }
 
         if self.export_busy {
             egui::CentralPanel::default()

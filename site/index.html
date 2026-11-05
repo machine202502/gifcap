@@ -14,6 +14,9 @@
   <meta property="og:description" content="Обведите участок экрана и получите GIF. Windows.">
   <meta property="og:url" content="https://machine202502.github.io/gifcap/">
   <meta property="og:image" content="https://machine202502.github.io/gifcap/assets/screenshot.webp">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <link rel="apple-touch-icon" href="assets/icon.png">
   <link rel="stylesheet" href="styles.css">
   <script>
     (function () {
@@ -37,7 +40,7 @@
 </head>
 <body>
   <header class="nav">
-    <a class="brand" href="#top">gifcap</a>
+    <a class="brand" href="#top"><img src="assets/icon.png" alt="" width="32" height="32">gifcap</a>
     <nav class="nav-links">
       <a href="#how">Как это работает</a>
       <a href="#download">Скачать</a>
@@ -52,7 +55,7 @@
       <div>
         <h1>GIF той области, которую вы оставили.</h1>
         <p class="lead">Панель остаётся на экране. Под ней или над ней — прозрачное окно. Записывается только этот кусок, сразу в GIF.</p>
-        <a class="btn" data-dl-zip href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64.zip">Скачать для Windows</a>
+        <a class="btn" data-dl-setup href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64-setup.exe">Скачать для Windows</a>
         <p class="hint">Версия <span data-version>@@VERSION@@</span> · исходники MIT · программа с FFmpeg под LGPL</p>
       </div>
       <figure class="shot">
@@ -72,10 +75,15 @@
     <section class="section" id="download">
       <h2>Скачать</h2>
       <div class="dl">
+        <a class="btn" data-dl-setup href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64-setup.exe">gifcap-<span data-version>@@VERSION@@</span>-windows-x64-setup.exe</a>
+        <p>Установщик. Размер: <span data-size-setup>@@SIZE_SETUP@@ МБ</span></p>
+        <p>SHA-256: <span class="hash" data-hash-setup>@@HASH_SETUP@@</span></p>
+      </div>
+      <div class="dl">
         <a class="btn" data-dl-zip href="https://github.com/machine202502/gifcap/releases/latest/download/gifcap-@@VERSION@@-windows-x64.zip">gifcap-<span data-version>@@VERSION@@</span>-windows-x64.zip</a>
-        <p>Размер: <span data-size-zip>@@SIZE_ZIP@@ МБ</span></p>
+        <p>Портативная версия. Размер: <span data-size-zip>@@SIZE_ZIP@@ МБ</span></p>
         <p>SHA-256: <span class="hash" data-hash-zip>@@HASH_ZIP@@</span></p>
-        <p class="license-note">Исходный код — <a href="https://github.com/machine202502/gifcap/blob/main/LICENSE">MIT</a>. В программе статически собран FFmpeg, поэтому файл программы под <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">GNU LGPL 2.1 или новее</a>. В архиве лежат COPYING, NOTICE и THIRD-PARTY.txt.</p>
+        <p class="license-note">Исходный код — <a href="https://github.com/machine202502/gifcap/blob/main/LICENSE">MIT</a>. В программе статически собран FFmpeg, поэтому файл программы под <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">GNU LGPL 2.1 или новее</a>. Установщик и архив содержат COPYING, NOTICE и THIRD-PARTY.txt.</p>
       </div>
     </section>
   </main>

@@ -1,4 +1,5 @@
-﻿# Build the release exe, then write the portable zip into dist/.
+﻿# Build the release exe, then write the portable zip and the installer into dist/.
+# Requires FFMPEG_DIR (static FFmpeg prefix) and Inno Setup 6 (ISCC.exe).
 param(
     [string]$Version
 )
@@ -89,3 +90,24 @@ if (Test-Path $portable) { Remove-Item $portable }
 Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $portable
 Remove-Item $stage -Recurse -Force
 Write-Host "Portable: $portable"
+
+$iscc = @(
+    "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+    "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+if (-not $iscc) {
+    throw "Inno Setup 6 was not found. Install it so ISCC.exe can build the installer."
+}
+
+$iss = Join-Path $Root "installer\gifcap.iss"
+& $iscc "/DAppVersion=$Version" "/DSourceExe=$exe" "/DThirdParty=$thirdParty" $iss
+if ($LASTEXITCODE -ne 0) {
+    throw "ISCC failed"
+}
+
+$setup = Join-Path $dist "gifcap-$Version-windows-x64-setup.exe"
+if (-not (Test-Path $setup)) {
+    throw "Installer was not produced: $setup"
+}
+Write-Host "Installer: $setup"
